@@ -1,0 +1,48 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# build outputs
+.next
+dist
+.expo
+out
+
+# env files — nunca commitar
+.env
+.env.local
+.env.*.local
+
+# turbo
+.turbo
+
+# prisma
+*.db
+*.db-journal
+
+# os
+.DS_Store
+Thumbs.db
+
+# ide
+.vscode/settings.json
+.idea
+
+# expo
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+android/
+ios/
+web-build/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# test coverage
+coverage

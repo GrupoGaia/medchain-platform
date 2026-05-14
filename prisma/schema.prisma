@@ -1,0 +1,244 @@
+// Prisma schema — MedChain
+// Banco: Supabase Postgres
+// Conexão via pooler para ambientes serverless (Vercel)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Enums
+// ────────────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  PATIENT
+  EMERGENCY_CONTACT
+  HEALTH_PROFESSIONAL
+  ADMIN
+}
+
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+  EXPIRED
+  CANCELLED
+}
+
+enum AccessTokenStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum ChannelType {
+  MOBILE_APP
+  WHATSAPP
+  WEB_PORTAL
+  CHATBOT
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// User — conta autenticada (ligada ao Supabase Auth pelo id)
+// ────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(uuid())
+  authId    String   @unique // Supabase Auth UUID
+  email     String   @unique
+  role      UserRole
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  patientProfile      PatientProfile?
+  professionalProfile HealthProfessionalProfile?
+  emergencyContacts   EmergencyContact[]          @relation("UserEmergencyContacts")
+  contactFor          EmergencyContact[]          @relation("ContactForPatient")
+  accessRequestsAs    AccessRequest[]             @relation("ProfessionalRequests")
+  accessLogs          AccessLog[]
+
+  @@map("users")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// PatientProfile
+// ────────────────────────────────────────────────────────────────────────────
+
+model PatientProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique @map("user_id")
+  fullName       String   @map("full_name")
+  birthDate      DateTime @map("birth_date")
+  gender         String?
+  bloodType      String?  @map("blood_type")
+  allergies      String[] // lista simples no MVP
+  chronicConditions String[] @map("chronic_conditions")
+  continuousMeds String[] @map("continuous_meds")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user            User              @relation(fields: [userId], references: [id])
+  documents       MedicalDocument[]
+  accessRequests  AccessRequest[]   @relation("PatientRequests")
+  tokens          AccessToken[]     @relation("PatientTokens")
+  logs            AccessLog[]       @relation("PatientLogs")
+  emergencyContacts EmergencyContact[]
+
+  @@map("patient_profiles")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// EmergencyContact
+// ────────────────────────────────────────────────────────────────────────────
+
+model EmergencyContact {
+  id        String   @id @default(uuid())
+  patientId String   @map("patient_id")
+  userId    String?  @map("user_id") // null se ainda não tem conta
+  name      String
+  relation  String   // "Filha", "Filho", "Cônjuge"…
+  phone     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  patient PatientProfile @relation(fields: [patientId], references: [id])
+  user    User?          @relation("ContactForPatient", fields: [userId], references: [id])
+  userRef User?          @relation("UserEmergencyContacts")
+
+  @@map("emergency_contacts")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// HealthProfessionalProfile
+// ────────────────────────────────────────────────────────────────────────────
+
+model HealthProfessionalProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique @map("user_id")
+  fullName       String   @map("full_name")
+  crm            String   @unique
+  specialty      String
+  institutionId  String?  @map("institution_id")
+  verified       Boolean  @default(false)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user        User         @relation(fields: [userId], references: [id])
+  institution Institution? @relation(fields: [institutionId], references: [id])
+  requests    AccessRequest[] @relation("ProfessionalAccessRequests")
+  tokens      AccessToken[]   @relation("ProfessionalTokens")
+
+  @@map("health_professional_profiles")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Institution
+// ────────────────────────────────────────────────────────────────────────────
+
+model Institution {
+  id        String   @id @default(uuid())
+  name      String
+  cnpj      String?  @unique
+  type      String   // "HOSPITAL", "CLINIC", "LAB"
+  createdAt DateTime @default(now()) @map("created_at")
+
+  professionals HealthProfessionalProfile[]
+
+  @@map("institutions")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// MedicalDocument
+// ────────────────────────────────────────────────────────────────────────────
+
+model MedicalDocument {
+  id          String   @id @default(uuid())
+  patientId   String   @map("patient_id")
+  title       String
+  type        String   // "EXAM", "PRESCRIPTION", "REPORT", "IMAGING"
+  storageKey  String   @map("storage_key") // caminho no Supabase Storage
+  mimeType    String   @map("mime_type")
+  issuedAt    DateTime @map("issued_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  patient PatientProfile @relation(fields: [patientId], references: [id])
+
+  @@map("medical_documents")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// AccessRequest — solicitação de acesso feita pelo médico
+// ────────────────────────────────────────────────────────────────────────────
+
+model AccessRequest {
+  id             String              @id @default(uuid())
+  patientId      String              @map("patient_id")
+  professionalId String              @map("professional_id")
+  requestedById  String              @map("requested_by_id")
+  status         AccessRequestStatus @default(PENDING)
+  scope          String
+  durationMinutes Int                @map("duration_minutes") @default(60)
+  reason         String?
+  channelType    ChannelType         @map("channel_type") @default(WEB_PORTAL)
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  patient      PatientProfile            @relation("PatientRequests", fields: [patientId], references: [id])
+  professional HealthProfessionalProfile @relation("ProfessionalAccessRequests", fields: [professionalId], references: [id])
+  requestedBy  User                      @relation("ProfessionalRequests", fields: [requestedById], references: [id])
+  token        AccessToken?
+
+  @@map("access_requests")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// AccessToken — token gerado após aprovação
+// ────────────────────────────────────────────────────────────────────────────
+
+model AccessToken {
+  id             String            @id @default(uuid())
+  requestId      String            @unique @map("request_id")
+  patientId      String            @map("patient_id")
+  professionalId String            @map("professional_id")
+  status         AccessTokenStatus @default(ACTIVE)
+  scope          String
+  expiresAt      DateTime          @map("expires_at")
+  revokedAt      DateTime?         @map("revoked_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  request      AccessRequest             @relation(fields: [requestId], references: [id])
+  patient      PatientProfile            @relation("PatientTokens", fields: [patientId], references: [id])
+  professional HealthProfessionalProfile @relation("ProfessionalTokens", fields: [professionalId], references: [id])
+  logs         AccessLog[]
+
+  @@map("access_tokens")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// AccessLog — auditoria append-only (nunca deletar registros)
+// ────────────────────────────────────────────────────────────────────────────
+
+model AccessLog {
+  id             String   @id @default(uuid())
+  tokenId        String?  @map("token_id")
+  actorUserId    String   @map("actor_user_id")
+  patientId      String   @map("patient_id")
+  eventType      String   @map("event_type") // "ACCESS", "APPROVE", "DENY", "REVOKE", "EXPIRE"
+  channel        ChannelType
+  deviceType     String?  @map("device_type")
+  ipAddress      String?  @map("ip_address")
+  userAgent      String?  @map("user_agent")
+  requestId      String?  @map("request_id") // HTTP request id para correlação
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  token   AccessToken?   @relation(fields: [tokenId], references: [id])
+  actor   User           @relation(fields: [actorUserId], references: [id])
+  patient PatientProfile @relation("PatientLogs", fields: [patientId], references: [id])
+
+  @@map("access_logs")
+}
