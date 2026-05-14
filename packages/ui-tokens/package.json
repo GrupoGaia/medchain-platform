@@ -7,6 +7,10 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'no lint'"
+  },
   "devDependencies": {
     "typescript": "^5.8.3"
   }

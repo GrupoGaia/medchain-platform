@@ -4,16 +4,12 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-  }
-
-  * {
-    @apply border-border;
+    --brand-primary: #0F766E;
+    --brand-light: #F0FDFA;
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
