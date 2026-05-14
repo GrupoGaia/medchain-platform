@@ -1,0 +1,4 @@
+# normaliza line endings para LF no repositório, CRLF no checkout Windows
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
