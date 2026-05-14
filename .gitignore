@@ -46,3 +46,6 @@ pnpm-debug.log*
 
 # test coverage
 coverage
+
+# typescript cache
+*.tsbuildinfo
