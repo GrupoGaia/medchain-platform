@@ -1,0 +1,43 @@
+{
+  "name": "@medchain/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "expo": "~55.0.24",
+    "expo-router": "~55.0.14",
+    "expo-status-bar": "~55.0.6",
+    "expo-secure-store": "~55.0.14",
+    "expo-font": "~55.0.0",
+    "expo-linking": "~55.0.15",
+    "expo-constants": "~55.0.16",
+    "expo-splash-screen": "~55.0.21",
+    "react": "^19.2.0",
+    "react-native": "0.85.3",
+    "react-native-safe-area-context": "^5.7.0",
+    "react-native-screens": "^4.25.0",
+    "nativewind": "^4.2.3",
+    "tailwindcss": "^3.4.17",
+    "lucide-react-native": "^0.513.0",
+    "react-native-svg": "^15.15.5",
+    "zod": "^3.25.28",
+    "@medchain/api-contract": "workspace:*",
+    "@medchain/domain": "workspace:*",
+    "@medchain/ui-tokens": "workspace:*"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.10",
+    "@types/react": "^19.1.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.1"
+  }
+}
