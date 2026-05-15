@@ -66,8 +66,16 @@ medchain-platform/
 │   ├── ui-tokens/       # Paleta, tipografia
 │   └── config/          # ESLint, TS, Prettier base
 ├── prisma/
-│   ├── schema.prisma    # 10 entidades completas
-│   └── seed.ts          # TODO: implementar na Fase 2
+│   └── schema.prisma    # 10 entidades completas
+├── apps/web/
+│   ├── lib/
+│   │   ├── prisma.ts    # singleton PrismaClient
+│   │   └── session.ts   # cookie de sessão (Fase 2, sem auth real)
+│   ├── prisma/
+│   │   └── seed.ts      # seed com @faker-js/faker pt_BR
+│   └── app/
+│       ├── api/         # Route Handlers REST
+│       └── medico/      # Portal médico (login, dashboard, solicitar, prontuario)
 ├── docs/
 │   └── roadmap-fases.md # Detalhamento das Fases 2-6
 └── CLAUDE.md            # este arquivo
@@ -81,13 +89,58 @@ medchain-platform/
 |---|---|
 | 0 — Fundação do monorepo | ✅ Concluída |
 | 1 — Protótipo mobile com mocks | ✅ Concluída |
-| 2 — API, banco e portal médico | ⏳ Próxima |
-| 3 — Autenticação e perfis | — |
+| 2 — API, banco e portal médico | ✅ Concluída — banco migrado e seed aplicado no Supabase |
+| 3 — Autenticação e perfis | ⏳ Próxima |
 | 4 — Documentos e storage | — |
 | 5 — Qualidade, observabilidade e demo | — |
 | 6 — Pós-MVP (opcional) | — |
 
 Detalhamento completo em `docs/roadmap-fases.md`.
+
+---
+
+## Fase 2 — O que foi implementado
+
+### Infraestrutura
+
+- `apps/web/package.json`: adicionados `@prisma/client`, `prisma`, `tsx`, `@faker-js/faker`; configurado `"prisma": { "seed": "node_modules/.bin/tsx prisma/seed.ts" }` — sem a chave `"schema"` pois o schema está no local padrão (`apps/web/prisma/schema.prisma`)
+- `apps/web/lib/prisma.ts`: singleton PrismaClient com padrão global para hot reload
+- `apps/web/lib/session.ts`: cookie `medchain_doctor_id` para "sessão" provisória até a Fase 3
+
+### Seed (`apps/web/prisma/seed.ts`)
+
+- 2 instituições (Hospital São Lucas, UPA Centro)
+- 3 médicos (Carlos Silva — Cardiologia, Ana Ferreira — Clínica Geral, Paulo Mendes — Endocrinologia)
+- 5 pacientes (João Batista + 4 gerados com faker pt_BR)
+- 20 documentos médicos distribuídos
+- 3 solicitações: 1 aprovada + token ativo (45min), 1 pendente, 1 expirada
+- Logs de auditoria correspondentes
+
+### Route Handlers (`apps/web/app/api/`)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/api/access-requests` | Médico cria solicitação |
+| GET  | `/api/access-requests/[id]` | Detalhes da solicitação |
+| POST | `/api/access-requests/[id]/approve` | Paciente/familiar aprova |
+| POST | `/api/access-requests/[id]/deny` | Paciente/familiar nega |
+| POST | `/api/tokens/[id]/revoke` | Revoga token |
+| GET  | `/api/audit-logs` | Histórico (query param `patientId`) |
+| GET  | `/api/patients/[id]/documents` | Docs do paciente (query param `professionalId`) |
+
+### Portal médico (`apps/web/app/medico/`)
+
+- `/medico/login` — seleção de médico (provisório, substituído por Supabase Auth na Fase 3)
+- `/medico/dashboard` — acessos ativos, pendentes e contador por especialidade
+- `/medico/solicitar` — formulário de solicitação de acesso (server action)
+- `/medico/prontuario/[patientId]` — dados do paciente, documentos, banner de expiração, encerrar acesso
+
+### Decisões da Fase 2
+
+- **Seed em `apps/web/prisma/`** (não na raiz): evita problema de resolução de módulos no pnpm — `tsx` roda a partir de `apps/web/` e encontra `@prisma/client` normalmente
+- **Sessão provisória por cookie** `medchain_doctor_id`: simplifica a demo; Fase 3 substitui por `supabase.auth.getSession()`
+- **Log de ACCESS no prontuario**: criado a cada carregamento da página (append-only, comportamento correto de auditoria)
+- **Token expirado detectado na requisição**: sem job externo; validação lazy no acesso
 
 ---
 
@@ -115,6 +168,9 @@ Detalhamento completo em `docs/roadmap-fases.md`.
 
 ## Decisões técnicas relevantes
 
+- **Schema Prisma em `apps/web/prisma/`** (não na raiz): a raiz do monorepo tem `prisma/schema.prisma` como referência histórica, mas o schema ativo e usado pelo Prisma CLI é `apps/web/prisma/schema.prisma`. O `package.json` do web **não deve** ter a chave `"schema"` no bloco `"prisma"` — sem ela, o Prisma usa o local padrão (`prisma/schema.prisma` relativo ao package). Isso resolve o bug de auto-install do Prisma CLI que tentava rodar `pnpm add` a partir da raiz do workspace (onde falha).
+- **Seed via `node_modules/.bin/tsx`**: o comando `tsx prisma/seed.ts` não funciona no Windows porque `prisma db seed` roda via cmd.exe sem o PATH de `node_modules/.bin`. O seed está configurado como `node_modules/.bin/tsx prisma/seed.ts` no `package.json`.
+- **Dois arquivos de env necessários**: `.env` (lido pelo Prisma CLI) e `.env.local` (lido pelo Next.js). O `.env` precisa ter apenas `DATABASE_URL` e `DIRECT_URL`. O `.env.local` tem também as vars `NEXT_PUBLIC_*`. Ambos devem estar no `.gitignore`. A senha do banco contém caracteres especiais — usar sempre URL-encoded: `x-1YIr8%3A10k%26` (`:` → `%3A`, `&` → `%26`).
 - **Packages são TypeScript-puro**: não têm build step. Turborepo usa `typecheck` como dependência, não `build`.
 - **expo-router com rota dinâmica**: usar `{ pathname: "/autorizacao/[id]" as never, params: { id } }` no `router.push()` enquanto os tipos não são regenerados pelo servidor.
 - **NativeWind v4**: não usa mais `plugins: ["nativewind/babel"]` no `babel.config.js`. Só `jsxImportSource: "nativewind"` no preset.
@@ -137,10 +193,11 @@ cd apps/mobile && npx expo start --clear
 pnpm typecheck
 pnpm lint
 
-# Banco (Fase 2 em diante)
-pnpm --filter @medchain/web exec npx prisma migrate dev --name <nome>
-pnpm --filter @medchain/web exec npx prisma db seed
-pnpm --filter @medchain/web exec npx prisma studio
+# Banco (Fase 2 em diante) — rodar de dentro de apps/web/
+cd apps/web
+node_modules/.bin/prisma migrate dev --name <nome>
+node_modules/.bin/tsx prisma/seed.ts   # seed direto (mais confiável que prisma db seed no Windows)
+node_modules/.bin/prisma studio
 ```
 
 ---
@@ -153,11 +210,16 @@ pnpm --filter @medchain/web exec npx prisma studio
 
 ---
 
-## Próximos passos (Fase 2)
+## Próximos passos (Fase 3)
 
-1. Criar projeto no Supabase e copiar as connection strings para `apps/web/.env.local`
-2. Rodar `npx prisma migrate dev --name init` para criar as tabelas
-3. Implementar o `prisma/seed.ts` com `@faker-js/faker` (pt_BR)
-4. Criar os Route Handlers em `apps/web/app/api/`
-5. Criar as telas do portal médico em `apps/web/app/(medico)/`
-6. Substituir o AppStore do mobile por chamadas reais à API
+Autenticação real com Supabase Auth:
+
+1. Instalar `@supabase/supabase-js` e `@supabase/ssr` em `apps/web`
+2. Instalar `expo-secure-store` em `apps/mobile`
+3. Substituir cookie `medchain_doctor_id` por `supabase.auth.getSession()` no web
+4. Middleware Next.js protegendo `/medico/*` — redireciona para `/medico/login` se sem sessão
+5. Telas de login/cadastro no mobile com sessão em `expo-secure-store`
+6. RLS no Supabase com policies por perfil (`PATIENT`, `HEALTH_PROFESSIONAL`, `EMERGENCY_CONTACT`)
+7. Substituir AppStore do mobile por chamadas reais à API (`apps/mobile/src/services/api.ts`)
+
+**Pendente da Fase 2**: substituir AppStore do mobile por chamadas à API. Depende das env vars do Supabase estarem configuradas primeiro.

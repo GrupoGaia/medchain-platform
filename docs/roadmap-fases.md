@@ -6,7 +6,7 @@
 |---|---|---|
 | Fase 0 | ✅ Concluída | Monorepo Turborepo, Next.js, Expo, packages compartilhados, CI |
 | Fase 1 | ✅ Concluída | Protótipo mobile navegável com mocks (AppStore, tela de autorização) |
-| Fase 2 | ⏳ Próxima | API REST, banco de dados Supabase, portal médico web |
+| Fase 2 | ✅ Concluída | API REST, banco migrado no Supabase, portal médico web funcional |
 | Fase 3 | — | Autenticação e controle de perfis |
 | Fase 4 | — | Documentos médicos e storage |
 | Fase 5 | — | Qualidade, observabilidade e roteiro de demo |
@@ -14,72 +14,60 @@
 
 ---
 
-## Fase 2 — API, banco e portal médico
+## Fase 2 — API, banco e portal médico ✅
 
-**Objetivo:** trocar os mocks por dados reais persistidos e habilitar o lado do médico.
+**Status:** Concluída em 2026-05-15.
 
-**Duração estimada:** 2 semanas
+### O que foi implementado
 
-### Banco de dados (Supabase + Prisma)
+#### Infraestrutura de banco
+- Schema Prisma em `apps/web/prisma/schema.prisma` (10 entidades: User, PatientProfile, EmergencyContact, HealthProfessionalProfile, Institution, MedicalDocument, AccessRequest, AccessToken, AccessLog + enums)
+- Migration `20260515121448_init` aplicada no Supabase
+- `apps/web/lib/prisma.ts`: singleton PrismaClient com padrão global para hot reload
+- `apps/web/lib/session.ts`: cookie `medchain_doctor_id` (sessão provisória — substituída na Fase 3)
 
-- Criar projeto no [Supabase](https://supabase.com) (free tier)
-- Copiar a connection string para `apps/web/.env.local`:
-  ```
-  DATABASE_URL="postgresql://..."
-  DIRECT_URL="postgresql://..."
-  ```
-- Aplicar o schema já existente em `prisma/schema.prisma`:
-  ```powershell
-  pnpm --filter @medchain/web exec npx prisma migrate dev --name init
-  ```
-- Habilitar RLS nas tabelas expostas (policies permissivas por ora)
-- Rodar o seed de dados fictícios:
-  ```powershell
-  pnpm --filter @medchain/web exec npx prisma db seed
-  ```
+#### Seed (`apps/web/prisma/seed.ts`)
+- 2 instituições (Hospital São Lucas, UPA Centro)
+- 3 médicos (Carlos Silva/Cardiologia, Ana Ferreira/Clínica Geral, Paulo Mendes/Endocrinologia)
+- 5 pacientes (João Batista + 4 com faker pt_BR)
+- 20 documentos médicos distribuídos
+- 3 solicitações: 1 aprovada + token ativo (45min), 1 pendente, 1 expirada
+- Logs de auditoria correspondentes
 
-### Endpoints REST (Next.js Route Handlers)
+**IDs para demo:**
+- João Batista (patientProfileId): `255cd166-4ea8-4698-8224-c2189ba029e8`
+- Dr. Carlos Silva (profileId): `95e8dc16-93a4-4bb3-afad-6e592272aaec`
+- Token ativo: `54edbe18-f3e6-410a-bd11-95b87f5651a9`
 
-Criar em `apps/web/app/api/`:
+#### Route Handlers (`apps/web/app/api/`)
 
 | Método | Rota | Descrição |
 |---|---|---|
 | POST | `/api/access-requests` | Médico cria solicitação |
-| GET | `/api/access-requests/[id]` | Detalhes da solicitação |
-| POST | `/api/access-requests/[id]/approve` | Paciente/familiar aprova |
+| GET  | `/api/access-requests/[id]` | Detalhes da solicitação |
+| POST | `/api/access-requests/[id]/approve` | Paciente/familiar aprova → gera token |
 | POST | `/api/access-requests/[id]/deny` | Paciente/familiar nega |
-| POST | `/api/tokens/[id]/revoke` | Paciente revoga token |
-| GET | `/api/audit-logs` | Histórico de acessos |
-| GET | `/api/patients/[id]/documents` | Lista documentos do paciente |
+| POST | `/api/tokens/[id]/revoke` | Revoga token ativo |
+| GET  | `/api/audit-logs` | Histórico (`?patientId=`, `take: 50`) |
+| GET  | `/api/patients/[id]/documents` | Docs do paciente (`?professionalId=`, valida token) |
 
-Todos os schemas de request/response usam os Zod schemas de `packages/api-contract/`.
+#### Portal médico (`apps/web/app/medico/`)
+- `/medico/login` — seleção de médico (provisório, substituído na Fase 3)
+- `/medico/dashboard` — tokens ativos com minutos restantes, solicitações pendentes
+- `/medico/solicitar` — formulário com server action que cria `AccessRequest` no banco
+- `/medico/prontuario/[patientId]` — dados do paciente, documentos, banner de expiração, revogar
 
-### Seed de dados
+### Decisões e gotchas desta fase
 
-Arquivo `prisma/seed.ts` com `@faker-js/faker` (pt_BR):
-- 5 pacientes fictícios (incluindo João Batista dos mocks)
-- 3 médicos em 2 instituições
-- 20 documentos médicos (laudos, receitas, exames)
-- 1 solicitação pendente e 1 token ativo (para demo imediata)
+- **Schema em `apps/web/prisma/`** (não na raiz): sem a chave `"schema"` no `package.json#prisma`, o Prisma usa o local padrão e o auto-install funciona a partir de `apps/web/`. Com a chave apontando para `../../`, o `pnpm add --silent` falhava porque rodava da raiz do workspace.
+- **Seed no Windows**: `prisma db seed` roda via cmd.exe sem `node_modules/.bin` no PATH. O `package.json` usa `node_modules/.bin/tsx prisma/seed.ts`. Para rodar manualmente: `node_modules/.bin/tsx prisma/seed.ts` de dentro de `apps/web/`.
+- **Dois arquivos de env obrigatórios**: `.env` (lido pelo Prisma CLI — só `DATABASE_URL` e `DIRECT_URL`) e `.env.local` (lido pelo Next.js — também tem `NEXT_PUBLIC_*`). Senha URL-encoded: `%3A` para `:`, `%26` para `&`.
+- **Log de ACCESS no prontuário**: criado a cada carregamento (`append-only`, comportamento correto de auditoria).
+- **Expiração lazy**: sem job externo — token é marcado como `EXPIRED` na primeira tentativa de acesso após `expiresAt`.
 
-### Portal médico web
-
-Telas em `apps/web/app/(medico)/`:
-- `/medico/dashboard` — lista de pacientes com token ativo e solicitações enviadas
-- `/medico/solicitar` — formulário para criar nova solicitação de acesso
-- `/medico/prontuario/[patientId]` — documentos visíveis enquanto o token está ativo
-
-### Mobile consome a API real
-
-- Substituir os mocks de `AppStore.tsx` por chamadas ao cliente HTTP (`apps/mobile/src/services/api.ts`)
-- Variável de ambiente `EXPO_PUBLIC_API_URL` apontando para o Next.js local (`http://<IP-LOCAL>:3000`)
-
-### Definition of Done
-
-- Médico no portal web cria solicitação → mobile mostra banner âmbar → familiar aprova → token aparece no banco → médico vê documentos → `AccessLog` registrado
-- Token expira automaticamente (verificação no acesso, sem job externo no MVP)
-- Revogação manual bloqueia novo acesso imediatamente
-- Acesso com token expirado ou inexistente retorna 401
+### O que ficou de fora (intencional — Fase 3)
+- Mobile ainda usa mocks (`AppStore.tsx`); integração com API real depende das env vars do Supabase configuradas
+- Autenticação real: login provisório por cookie sem senha
 
 ---
 
@@ -210,10 +198,11 @@ Só se houver tempo ou se o projeto continuar além da entrega acadêmica.
 pnpm dev                                          # sobe mobile + web juntos
 cd apps/mobile && npx expo start --clear          # mobile com cache limpo
 
-# Banco de dados
-pnpm --filter @medchain/web exec npx prisma migrate dev --name <nome>
-pnpm --filter @medchain/web exec npx prisma db seed
-pnpm --filter @medchain/web exec npx prisma studio  # GUI do banco
+# Banco de dados — rodar de dentro de apps/web/
+cd apps/web
+node_modules/.bin/prisma migrate dev --name <nome>
+node_modules/.bin/tsx prisma/seed.ts              # seed direto (mais confiável no Windows)
+node_modules/.bin/prisma studio                   # GUI do banco
 
 # Qualidade
 pnpm lint

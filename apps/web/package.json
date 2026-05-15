@@ -2,6 +2,9 @@
   "name": "@medchain/web",
   "version": "0.1.0",
   "private": true,
+  "prisma": {
+    "seed": "node_modules/.bin/tsx prisma/seed.ts"
+  },
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
@@ -9,9 +12,14 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@prisma/client": "6.19.3",
     "next": "^15.3.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -22,6 +30,9 @@
     "@medchain/ui-tokens": "workspace:*"
   },
   "devDependencies": {
+    "@faker-js/faker": "^9.8.0",
+    "prisma": "6.19.3",
+    "tsx": "^4.19.4",
     "@types/node": "^22.15.18",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.4",
