@@ -19,32 +19,34 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@medchain/api-contract": "workspace:*",
+    "@medchain/domain": "workspace:*",
+    "@medchain/ui-tokens": "workspace:*",
     "@prisma/client": "6.19.3",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.106.0",
+    "lucide-react": "^0.513.0",
     "next": "^15.3.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "lucide-react": "^0.513.0",
-    "zod": "^3.25.28",
-    "@medchain/api-contract": "workspace:*",
-    "@medchain/domain": "workspace:*",
-    "@medchain/ui-tokens": "workspace:*"
+    "zod": "^3.25.28"
   },
   "devDependencies": {
     "@faker-js/faker": "^9.8.0",
-    "prisma": "6.19.3",
-    "tsx": "^4.19.4",
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22.15.18",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.4",
-    "typescript": "^5.8.3",
-    "tailwindcss": "^3.4.17",
-    "postcss": "^8.5.3",
+    "@vitejs/plugin-react": "^4.5.1",
     "autoprefixer": "^10.4.21",
-    "@tailwindcss/forms": "^0.5.10",
-    "@tailwindcss/typography": "^0.5.16",
     "eslint": "^9.27.0",
     "eslint-config-next": "^15.3.2",
-    "vitest": "^3.2.1",
-    "@vitejs/plugin-react": "^4.5.1"
+    "postcss": "^8.5.3",
+    "prisma": "6.19.3",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.1"
   }
 }

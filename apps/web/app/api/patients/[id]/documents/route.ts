@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
 import { validateToken } from "@medchain/domain";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: patientId } = await params;
-  const professionalId = request.nextUrl.searchParams.get("professionalId");
+  const user = await getApiUser(request);
+  if (!user) return unauthorized();
+  if (!user.professionalProfile) return forbidden();
 
-  if (!professionalId) {
-    return NextResponse.json({ error: "professionalId é obrigatório" }, { status: 400 });
-  }
+  const { id: patientId } = await params;
+  const professionalId = user.professionalProfile.id;
 
   const token = await prisma.accessToken.findFirst({
     where: { patientId, professionalId, status: "ACTIVE" },

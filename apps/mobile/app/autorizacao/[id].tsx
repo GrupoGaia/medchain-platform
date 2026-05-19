@@ -23,7 +23,7 @@ export default function AutorizacaoScreen() {
   function handleApprove() {
     Alert.alert(
       "Confirmar autorização",
-      `Autorizar acesso de ${request!.professional.name} por ${request!.durationMinutes} minutos?`,
+      `Autorizar acesso de ${request!.professional.fullName} por ${request!.durationMinutes} minutos?`,
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -41,7 +41,7 @@ export default function AutorizacaoScreen() {
   function handleDeny() {
     Alert.alert(
       "Negar acesso",
-      `Tem certeza que deseja negar o acesso de ${request!.professional.name}?`,
+      `Tem certeza que deseja negar o acesso de ${request!.professional.fullName}?`,
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -82,7 +82,7 @@ export default function AutorizacaoScreen() {
               </View>
               <View className="flex-1">
                 <Text className="text-base font-bold text-gray-900">
-                  {request.professional.name}
+                  {request.professional.fullName}
                 </Text>
                 <Text className="text-sm text-gray-500">{request.professional.crm}</Text>
               </View>
@@ -96,7 +96,7 @@ export default function AutorizacaoScreen() {
               <View className="flex-1">
                 <Text className="text-xs text-gray-400 mb-0.5">Instituição</Text>
                 <Text className="text-sm font-medium text-gray-900">
-                  {request.professional.institution}
+                  {request.professional.institution?.name ?? ""}
                 </Text>
               </View>
             </View>

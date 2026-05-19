@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = request.nextUrl;
-  const patientId = searchParams.get("patientId") ?? undefined;
+  const user = await getApiUser(request);
+  if (!user) return unauthorized();
+  if (!user.patientProfile) return forbidden();
+
+  const patientId = user.patientProfile.id;
 
   const logs = await prisma.accessLog.findMany({
-    where: patientId ? { patientId } : {},
+    where: { patientId },
     include: {
       actor: { select: { email: true, role: true } },
       token: {

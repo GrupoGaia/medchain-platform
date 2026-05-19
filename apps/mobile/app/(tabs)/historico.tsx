@@ -1,80 +1,98 @@
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity } from "react-native";
-import { Heart, FlaskConical, FileText, Pill, Activity } from "lucide-react-native";
+import { View, Text, ScrollView, SafeAreaView } from "react-native";
+import { ShieldCheck, ShieldOff, ShieldX, Activity } from "lucide-react-native";
 import { useAppStore } from "../../src/context/AppStore";
-import { MOCK_HISTORY, HistoryEvent } from "../../src/services/mocks/data";
+import type { AuditLogResponse } from "../../src/services/api";
 
-const iconeMap: Record<string, React.ReactNode> = {
-  Consulta: <Heart color="#0F766E" size={18} />,
-  Exame: <FlaskConical color="#0F766E" size={18} />,
-  Receita: <Pill color="#0F766E" size={18} />,
-  Cirurgia: <FileText color="#0F766E" size={18} />,
-};
+function formatEventType(eventType: string): string {
+  const map: Record<string, string> = {
+    ACCESS: "Prontuário acessado",
+    APPROVE: "Acesso autorizado",
+    DENY: "Acesso negado",
+    REVOKE: "Acesso revogado",
+    REQUEST: "Acesso solicitado",
+  };
+  return map[eventType] ?? eventType;
+}
 
-function groupByPeriod(events: HistoryEvent[]): Record<string, HistoryEvent[]> {
-  return events.reduce<Record<string, HistoryEvent[]>>((acc, ev) => {
-    if (!acc[ev.period]) acc[ev.period] = [];
-    acc[ev.period].push(ev);
-    return acc;
-  }, {});
+function EventIcon({ eventType }: { eventType: string }) {
+  switch (eventType) {
+    case "APPROVE":
+      return <ShieldCheck color="#0F766E" size={16} />;
+    case "DENY":
+      return <ShieldX color="#DC2626" size={16} />;
+    case "REVOKE":
+      return <ShieldOff color="#9CA3AF" size={16} />;
+    default:
+      return <Activity color="#6366F1" size={16} />;
+  }
+}
+
+function iconBg(eventType: string): string {
+  switch (eventType) {
+    case "APPROVE":
+      return "bg-teal-50";
+    case "DENY":
+    case "REVOKE":
+      return "bg-red-50";
+    default:
+      return "bg-indigo-50";
+  }
+}
+
+function LogRow({ log }: { log: AuditLogResponse }) {
+  return (
+    <View className="mb-2 flex-row items-start gap-3 rounded-xl bg-white p-4">
+      <View className={`mt-0.5 h-8 w-8 items-center justify-center rounded-lg ${iconBg(log.eventType)}`}>
+        <EventIcon eventType={log.eventType} />
+      </View>
+      <View className="flex-1">
+        <Text className="text-sm font-semibold text-gray-900">
+          {formatEventType(log.eventType)}
+        </Text>
+        {log.token && (
+          <Text className="text-xs text-gray-500">
+            {log.token.professional.fullName} · {log.token.professional.crm}
+          </Text>
+        )}
+        <Text className="text-xs text-gray-400">
+          {new Date(log.createdAt).toLocaleString("pt-BR")}
+        </Text>
+      </View>
+    </View>
+  );
 }
 
 export default function HistoricoScreen() {
   const { state } = useAppStore();
-  const grouped = groupByPeriod(MOCK_HISTORY);
-  const recentLogs = state.logs.slice(0, 3);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
         <Text className="mb-6 text-2xl font-bold text-gray-900">Meu Histórico</Text>
 
-        {Object.keys(grouped).map((period) => (
-          <View key={period} className="mb-6">
-            <Text className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
-              {period}
-            </Text>
-            {grouped[period].map((item) => (
-              <View key={item.id} className="mb-2 rounded-xl bg-white p-4">
-                <View className="flex-row items-start gap-3">
-                  <View className="mt-0.5 h-8 w-8 items-center justify-center rounded-lg bg-teal-50">
-                    {iconeMap[item.type]}
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-xs font-medium uppercase text-teal-600">{item.type}</Text>
-                    <Text className="text-sm font-semibold text-gray-900">{item.description}</Text>
-                    <Text className="text-xs text-gray-500">{item.detail}</Text>
-                    {item.action && (
-                      <TouchableOpacity
-                        className="mt-2 self-start rounded-lg bg-teal-50 px-3 py-1.5"
-                        accessibilityLabel={item.action}
-                        accessibilityRole="button"
-                      >
-                        <Text className="text-xs font-medium text-teal-700">{item.action}</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        ))}
+        {state.loading && (
+          <Text className="text-center text-sm text-gray-400">Carregando...</Text>
+        )}
 
-        {recentLogs.length > 0 && (
+        {!state.loading && state.logs.length === 0 && (
+          <View className="items-center rounded-2xl bg-white py-12">
+            <Activity color="#9CA3AF" size={40} />
+            <Text className="mt-3 text-base font-medium text-gray-500">
+              Sem eventos registrados
+            </Text>
+            <Text className="text-sm text-gray-400">
+              Os acessos ao seu prontuário aparecerão aqui
+            </Text>
+          </View>
+        )}
+
+        {state.logs.length > 0 && (
           <>
             <Text className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
               Acessos ao prontuário
             </Text>
-            {recentLogs.map((log) => (
-              <View key={log.id} className="mb-2 flex-row items-start gap-3 rounded-xl bg-white p-4">
-                <View className="mt-0.5 h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
-                  <Activity color="#6366F1" size={16} />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-semibold text-gray-900">{log.description}</Text>
-                  <Text className="text-xs text-gray-500">{log.professional}</Text>
-                  <Text className="text-xs text-gray-400">{log.createdAt}</Text>
-                </View>
-              </View>
+            {state.logs.map((log) => (
+              <LogRow key={log.id} log={log} />
             ))}
           </>
         )}
