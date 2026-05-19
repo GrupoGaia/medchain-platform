@@ -90,12 +90,73 @@ medchain-platform/
 | 0 — Fundação do monorepo | ✅ Concluída |
 | 1 — Protótipo mobile com mocks | ✅ Concluída |
 | 2 — API, banco e portal médico | ✅ Concluída — banco migrado e seed aplicado no Supabase |
-| 3 — Autenticação e perfis | ⏳ Próxima |
-| 4 — Documentos e storage | — |
+| 3 — Autenticação e perfis | ✅ Concluída — branch `fase-3/auth`, commit `2e191d5` |
+| 4 — Documentos e storage | ⏳ Próxima |
 | 5 — Qualidade, observabilidade e demo | — |
 | 6 — Pós-MVP (opcional) | — |
 
 Detalhamento completo em `docs/roadmap-fases.md`.
+
+---
+
+## Fase 3 — O que foi implementado
+
+### Web
+
+- `apps/web/lib/supabase/` — clientes `server.ts` (SSR cookies), `browser.ts` (Client Components), `admin.ts` (service role, server-only)
+- `apps/web/middleware.ts` — protege `/medico/*`; redireciona para `/medico/login` se sem sessão (Edge-compatible)
+- `apps/web/lib/session.ts` — reescrito: `getCurrentUser()`, `requireDoctor()`, `requirePatient()` usando `supabase.auth.getUser()`
+- `apps/web/lib/api-auth.ts` — `getApiUser()` suporta cookie (web) e Bearer token (mobile); `unauthorized()`, `forbidden()`
+- Todas as 7 API Routes exigem autenticação + verificam role/ownership; `professionalId` derivado da sessão (não mais do body)
+- Novos endpoints: `GET /api/me`, `GET /api/me/documents`, `GET /api/access-tokens`, `POST /api/users`
+- `apps/web/prisma/seed.ts` — reescrito com `supabaseAdmin.auth.admin.createUser()`; idempotente via `getOrCreateAuthUser()`
+- `apps/web/app/medico/login/page.tsx` — formulário email/senha com server action; painel de credenciais de demo
+- Portal médico completo usa `requireDoctor()` em todas as páginas e server actions
+
+### Mobile
+
+- `apps/mobile/src/services/supabase.ts` — `createClient` com `ExpoSecureStoreAdapter`
+- `apps/mobile/src/services/api.ts` — `authedFetch<T>()` injeta JWT; objeto `api` com todos os endpoints
+- `apps/mobile/src/context/AuthProvider.tsx` — context com `session`, `loading`, `signIn`, `signUp`, `signOut`
+- `apps/mobile/app/(auth)/` — telas `login.tsx` e `cadastro.tsx`
+- `apps/mobile/src/context/AppStore.tsx` — refatorado de reducer+mocks para chamadas reais via `api.*`
+- Todas as abas (início, permissões, histórico, perfil) consomem dados reais da API; mocks removidos
+- Logout funcional em `perfil.tsx` via `useAuth().signOut()`
+- `apps/web/prisma/schema.prisma` — `birthDate` tornado `DateTime?` (opcional para signup mobile)
+
+### Credenciais de demo (senha: `medchain123`)
+
+| Email | Perfil |
+|---|---|
+| `carlos.silva@medchain.demo` | Médico — Cardiologia |
+| `ana.ferreira@medchain.demo` | Médico — Clínica Geral |
+| `paulo.mendes@medchain.demo` | Médico — Endocrinologia |
+| `joao.batista@exemplo.com` | Paciente (persona principal) |
+
+### Decisões da Fase 3
+
+- **`authId` vs `id`**: `User.authId` = UUID do Supabase Auth; `User.id` = UUID do Prisma. Nunca confundir.
+- **Prisma usa service role**: bypassa RLS por default. Auth enforced no código (middleware + handlers).
+- **Bearer token no mobile**: `getApiUser()` tenta cookie primeiro, depois `Authorization: Bearer <jwt>`.
+- **Seed idempotente**: `getOrCreateAuthUser()` tenta criar; se email já existe, recupera via `listUsers`.
+
+### Pendências da Fase 3 — EXECUTAR ANTES DE QUALQUER OUTRA COISA
+
+> **ATENÇÃO: estas duas etapas são obrigatórias antes de iniciar a Fase 4 ou testar o app.**
+
+**1. Aplicar migration `make_birthdate_optional`** (banco estava inacessível no último commit):
+```powershell
+cd apps/web
+node_modules/.bin/prisma migrate dev --name make_birthdate_optional
+```
+
+**2. Rodar o seed** para criar os 10 usuários reais no Supabase Auth:
+```powershell
+cd apps/web
+node_modules/.bin/tsx prisma/seed.ts
+```
+
+**3. Sub-fase 3.5 — RLS (defense-in-depth)**: ainda não implementada. Criar migration manual com `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` e policies por role. Plano detalhado em `~/.claude/plans/sim-gere-um-plano-dapper-shore.md` (sub-fase 3.5).
 
 ---
 
@@ -210,16 +271,15 @@ node_modules/.bin/prisma studio
 
 ---
 
-## Próximos passos (Fase 3)
+## Próximos passos (Fase 4 — Documentos e Storage)
 
-Autenticação real com Supabase Auth:
+Antes de iniciar, executar as **Pendências da Fase 3** descritas acima.
 
-1. Instalar `@supabase/supabase-js` e `@supabase/ssr` em `apps/web`
-2. Instalar `expo-secure-store` em `apps/mobile`
-3. Substituir cookie `medchain_doctor_id` por `supabase.auth.getSession()` no web
-4. Middleware Next.js protegendo `/medico/*` — redireciona para `/medico/login` se sem sessão
-5. Telas de login/cadastro no mobile com sessão em `expo-secure-store`
-6. RLS no Supabase com policies por perfil (`PATIENT`, `HEALTH_PROFESSIONAL`, `EMERGENCY_CONTACT`)
-7. Substituir AppStore do mobile por chamadas reais à API (`apps/mobile/src/services/api.ts`)
+Fase 4 envolve:
+1. Upload de PDFs/imagens para Supabase Storage
+2. Endpoint `POST /api/me/documents` — upload com validação de tipo/tamanho
+3. Visualização de documentos no mobile (PDF viewer ou WebView)
+4. Tela de upload no portal médico
+5. Políticas de Storage vinculadas ao RLS (só o paciente/profissional autorizado acessa)
 
-**Pendente da Fase 2**: substituir AppStore do mobile por chamadas à API. Depende das env vars do Supabase estarem configuradas primeiro.
+Detalhamento completo em `docs/roadmap-fases.md`.
