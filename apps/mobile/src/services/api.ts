@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import { supabase } from "./supabase";
+import { buildApiUrl } from "./api-url";
 
 const API_URL = ((Constants.expoConfig?.extra ?? {}) as { apiUrl?: string }).apiUrl ?? "";
 
@@ -16,7 +17,7 @@ async function authedFetch<T>(path: string, init: RequestInit = {}): Promise<T> 
     headers["Authorization"] = `Bearer ${session.access_token}`;
   }
 
-  const res = await fetch(`${API_URL}${path}`, { ...init, headers });
+  const res = await fetch(buildApiUrl(API_URL, path), { ...init, headers });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
     throw new Error(`API ${res.status}: ${text}`);

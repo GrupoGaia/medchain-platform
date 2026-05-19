@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
-import type { UserRole } from "@prisma/client";
+import { CreateMobileUserSchema } from "@/lib/mobile-user-schema";
 
 // POST /api/users — cria registro Prisma após signUp no mobile (idempotente)
 export async function POST(request: NextRequest) {
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   // Idempotente: retorna se já existe
   const existing = await prisma.user.findUnique({
     where: { authId: authUser.id },
-    include: { patientProfile: true, professionalProfile: true },
+    include: { patientProfile: true, professionalProfile: true, contactFor: true },
   });
   if (existing) return NextResponse.json(existing);
 
@@ -34,24 +34,59 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const { role, fullName } = body as { role: UserRole; fullName: string };
-  if (!role || !fullName) {
-    return NextResponse.json({ error: "role e fullName são obrigatórios" }, { status: 400 });
+  const result = CreateMobileUserSchema.safeParse(body);
+  if (!result.success) {
+    return NextResponse.json({ error: result.error.flatten() }, { status: 422 });
   }
 
-  const dbUser = await prisma.user.create({
-    data: {
-      authId: authUser.id,
-      email: authUser.email!,
-      role,
-    },
+  const input = result.data;
+
+  if (input.role === "EMERGENCY_CONTACT") {
+    const patient = await prisma.patientProfile.findUnique({
+      where: { id: input.patientId },
+      select: { id: true },
+    });
+    if (!patient) {
+      return NextResponse.json({ error: "Paciente não encontrado" }, { status: 404 });
+    }
+  }
+
+  const created = await prisma.$transaction(async (tx) => {
+    const dbUser = await tx.user.create({
+      data: {
+        authId: authUser.id,
+        email: authUser.email!,
+        role: input.role,
+      },
+    });
+
+    if (input.role === "PATIENT") {
+      await tx.patientProfile.create({
+        data: {
+          userId: dbUser.id,
+          fullName: input.fullName,
+          allergies: [],
+          chronicConditions: [],
+          continuousMeds: [],
+        },
+      });
+    } else {
+      await tx.emergencyContact.create({
+        data: {
+          patientId: input.patientId,
+          userId: dbUser.id,
+          name: input.fullName,
+          relation: input.relation,
+          phone: input.phone,
+        },
+      });
+    }
+
+    return tx.user.findUniqueOrThrow({
+      where: { id: dbUser.id },
+      include: { patientProfile: true, professionalProfile: true, contactFor: true },
+    });
   });
 
-  if (role === "PATIENT") {
-    await prisma.patientProfile.create({
-      data: { userId: dbUser.id, fullName },
-    });
-  }
-
-  return NextResponse.json(dbUser, { status: 201 });
+  return NextResponse.json(created, { status: 201 });
 }

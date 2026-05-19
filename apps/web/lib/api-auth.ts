@@ -6,7 +6,7 @@ import { prisma } from "./prisma";
 async function findDbUser(authId: string) {
   return prisma.user.findUnique({
     where: { authId },
-    include: { professionalProfile: true, patientProfile: true },
+    include: { professionalProfile: true, patientProfile: true, contactFor: true },
   });
 }
 

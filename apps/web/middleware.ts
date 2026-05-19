@@ -37,10 +37,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/medico/login", request.url));
   }
 
-  if (user && pathname === "/medico/login") {
-    return NextResponse.redirect(new URL("/medico/dashboard", request.url));
-  }
-
   return response;
 }
 

@@ -14,6 +14,7 @@ export async function getCurrentUser() {
     include: {
       professionalProfile: true,
       patientProfile: true,
+      contactFor: true,
     },
   });
 }

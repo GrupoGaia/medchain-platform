@@ -90,7 +90,7 @@ medchain-platform/
 | 0 — Fundação do monorepo | ✅ Concluída |
 | 1 — Protótipo mobile com mocks | ✅ Concluída |
 | 2 — API, banco e portal médico | ✅ Concluída — banco migrado e seed aplicado no Supabase |
-| 3 — Autenticação e perfis | ✅ Concluída — branch `fase-3/auth`, commit `2e191d5` |
+| 3 — Autenticação e perfis | ✅ Concluída em código — validação final entra como checkpoint inicial da Fase 4 |
 | 4 — Documentos e storage | ⏳ Próxima |
 | 5 — Qualidade, observabilidade e demo | — |
 | 6 — Pós-MVP (opcional) | — |
@@ -109,7 +109,11 @@ Detalhamento completo em `docs/roadmap-fases.md`.
 - `apps/web/lib/api-auth.ts` — `getApiUser()` suporta cookie (web) e Bearer token (mobile); `unauthorized()`, `forbidden()`
 - Todas as 7 API Routes exigem autenticação + verificam role/ownership; `professionalId` derivado da sessão (não mais do body)
 - Novos endpoints: `GET /api/me`, `GET /api/me/documents`, `GET /api/access-tokens`, `POST /api/users`
-- `apps/web/prisma/seed.ts` — reescrito com `supabaseAdmin.auth.admin.createUser()`; idempotente via `getOrCreateAuthUser()`
+- `apps/web/lib/patient-access.ts` — centraliza acesso do próprio paciente e de contatos de emergência vinculados
+- `apps/web/lib/mobile-user-schema.ts` — valida signup público apenas para `PATIENT` e `EMERGENCY_CONTACT`
+- `apps/web/prisma/seed.ts` — reescrito com `supabase.auth.admin.createUser()`; idempotente via `getOrCreateAuthUser()`; cria 3 médicos, 5 pacientes e 2 contatos de emergência no Auth
+- `apps/web/prisma/migrations/20260519120000_make_birthdate_optional` — alinha `birth_date` opcional com o schema
+- `apps/web/prisma/migrations/20260519121000_enable_rls` — habilita RLS e policies de leitura para paciente, contato de emergência e profissional com token ativo
 - `apps/web/app/medico/login/page.tsx` — formulário email/senha com server action; painel de credenciais de demo
 - Portal médico completo usa `requireDoctor()` em todas as páginas e server actions
 
@@ -117,6 +121,7 @@ Detalhamento completo em `docs/roadmap-fases.md`.
 
 - `apps/mobile/src/services/supabase.ts` — `createClient` com `ExpoSecureStoreAdapter`
 - `apps/mobile/src/services/api.ts` — `authedFetch<T>()` injeta JWT; objeto `api` com todos os endpoints
+- `apps/mobile/src/services/api-url.ts` — normaliza `EXPO_PUBLIC_API_URL` para aceitar base com ou sem `/api`
 - `apps/mobile/src/context/AuthProvider.tsx` — context com `session`, `loading`, `signIn`, `signUp`, `signOut`
 - `apps/mobile/app/(auth)/` — telas `login.tsx` e `cadastro.tsx`
 - `apps/mobile/src/context/AppStore.tsx` — refatorado de reducer+mocks para chamadas reais via `api.*`
@@ -132,6 +137,8 @@ Detalhamento completo em `docs/roadmap-fases.md`.
 | `ana.ferreira@medchain.demo` | Médico — Clínica Geral |
 | `paulo.mendes@medchain.demo` | Médico — Endocrinologia |
 | `joao.batista@exemplo.com` | Paciente (persona principal) |
+| `maria.batista@exemplo.com` | Contato de emergência — filha do João |
+| `pedro.batista@exemplo.com` | Contato de emergência — filho do João |
 
 ### Decisões da Fase 3
 
@@ -139,24 +146,40 @@ Detalhamento completo em `docs/roadmap-fases.md`.
 - **Prisma usa service role**: bypassa RLS por default. Auth enforced no código (middleware + handlers).
 - **Bearer token no mobile**: `getApiUser()` tenta cookie primeiro, depois `Authorization: Bearer <jwt>`.
 - **Seed idempotente**: `getOrCreateAuthUser()` tenta criar; se email já existe, recupera via `listUsers`.
+- **RLS defense-in-depth**: Prisma usa service role e continua bypassando RLS; policies protegem acessos diretos com role `authenticated`.
+- **Shadow database do Prisma**: a migration de RLS usa `current_auth_uid()` com SQL dinâmico para não quebrar `prisma migrate dev` em shadow DB sem schema `auth`.
+- **URL mobile da API**: `EXPO_PUBLIC_API_URL` deve ser a origem do Next.js, por exemplo `http://192.168.x.x:3000`; não incluir `/api` no final.
 
-### Pendências da Fase 3 — EXECUTAR ANTES DE QUALQUER OUTRA COISA
+### Checkpoint inicial da Fase 4 — validação final da Fase 3
 
-> **ATENÇÃO: estas duas etapas são obrigatórias antes de iniciar a Fase 4 ou testar o app.**
+> O código, migrations e docs da Fase 3 foram fechados. A validação funcional final fica explicitamente como primeiro passo da Fase 4, porque exige `SUPABASE_SERVICE_ROLE_KEY` configurada localmente.
 
-**1. Aplicar migration `make_birthdate_optional`** (banco estava inacessível no último commit):
-```powershell
-cd apps/web
-node_modules/.bin/prisma migrate dev --name make_birthdate_optional
+**1. Confirmar env local do seed** em `apps/web/.env.local`:
+```env
+NEXT_PUBLIC_SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
-**2. Rodar o seed** para criar os 10 usuários reais no Supabase Auth:
+Não registrar a service role key em chat, docs ou Git.
+
+**2. Confirmar migrations aplicadas**:
+```powershell
+cd apps/web
+node_modules/.bin/prisma migrate status
+```
+
+Resultado esperado: `Database schema is up to date!` com 3 migrations.
+
+**3. Rodar o seed** para criar/reutilizar os 10 usuários reais no Supabase Auth:
 ```powershell
 cd apps/web
 node_modules/.bin/tsx prisma/seed.ts
 ```
 
-**3. Sub-fase 3.5 — RLS (defense-in-depth)**: ainda não implementada. Criar migration manual com `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` e policies por role. Plano detalhado em `~/.claude/plans/sim-gere-um-plano-dapper-shore.md` (sub-fase 3.5).
+**4. Validação manual mínima**:
+- Web: login médico, dashboard, criar solicitação, prontuário com token ativo.
+- Mobile: login do João, listar solicitação pendente, aprovar/negar, ver permissões/logs.
+- Segurança: acesso sem sessão retorna 401/redirect; médico sem token não acessa documentos.
 
 ---
 
@@ -273,7 +296,7 @@ node_modules/.bin/prisma studio
 
 ## Próximos passos (Fase 4 — Documentos e Storage)
 
-Antes de iniciar, executar as **Pendências da Fase 3** descritas acima.
+Antes de implementar storage, executar o **checkpoint inicial da Fase 4** descrito acima.
 
 Fase 4 envolve:
 1. Upload de PDFs/imagens para Supabase Storage
