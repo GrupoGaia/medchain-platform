@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
+import { canManagePatient } from "@/lib/patient-access";
 
 export async function POST(
   request: NextRequest,
@@ -20,7 +21,7 @@ export async function POST(
     return NextResponse.json({ error: "Token não está ativo" }, { status: 409 });
   }
 
-  const isPatient = user.patientProfile?.id === token.patientId;
+  const isPatient = canManagePatient(user, token.patientId);
   const isProfessional = user.professionalProfile?.id === token.professionalId;
   if (!isPatient && !isProfessional) return forbidden();
 

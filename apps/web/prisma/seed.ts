@@ -1,11 +1,63 @@
 import { PrismaClient } from "@prisma/client";
 import { faker } from "@faker-js/faker/locale/pt_BR";
-import { supabaseAdmin } from "../lib/supabase/admin";
+import { createClient } from "@supabase/supabase-js";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+function loadEnvFile(fileName: string, override = false) {
+  const envPath = resolve(process.cwd(), fileName);
+  if (!existsSync(envPath)) return;
+
+  for (const rawLine of readFileSync(envPath, "utf8").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex === -1) continue;
+
+    const key = line.slice(0, separatorIndex).trim();
+    let value = line.slice(separatorIndex + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    if (override || process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadEnvFile(".env");
+loadEnvFile(".env.local", true);
 
 // Senha padrão de demonstração — NUNCA usar em produção
 const DEMO_PASSWORD = "medchain123";
 
 const prisma = new PrismaClient();
+
+function createSupabaseAdminClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar em apps/web/.env.local"
+    );
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+const supabaseAdmin = createSupabaseAdminClient();
 
 // Cria usuário no Supabase Auth ou reutiliza se já existir (idempotência)
 async function getOrCreateAuthUser(
@@ -40,9 +92,12 @@ async function main() {
   console.log("🌱 Iniciando seed...");
 
   // Verificar variáveis de ambiente necessárias
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !(process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY)
+  ) {
     throw new Error(
-      "NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar no arquivo .env"
+      "NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar em apps/web/.env.local"
     );
   }
 
@@ -96,7 +151,25 @@ async function main() {
 
   // ── Pacientes ─────────────────────────────────────────────────────────────
   // Emails fixos para pacientes de demo; os demais são fictícios mas determinísticos
-  const patientSeeds = [
+  type ContactSeed = {
+    email?: string;
+    name: string;
+    relation: string;
+    phone: string;
+  };
+
+  type PatientSeed = {
+    email: string;
+    name: string;
+    birthDate: Date;
+    bloodType: string;
+    allergies: string[];
+    chronicConditions: string[];
+    continuousMeds: string[];
+    contacts: ContactSeed[];
+  };
+
+  const patientSeeds: PatientSeed[] = [
     {
       email: "joao.batista@exemplo.com",
       name: "João Batista",
@@ -106,8 +179,18 @@ async function main() {
       chronicConditions: ["Hipertensão arterial", "Pré-diabetes"],
       continuousMeds: ["Losartana 50mg", "Metformina 850mg"],
       contacts: [
-        { name: "Maria Batista", relation: "Filha", phone: "(11) 9 9999-0001" },
-        { name: "Pedro Batista", relation: "Filho", phone: "(11) 9 9999-0002" },
+        {
+          email: "maria.batista@exemplo.com",
+          name: "Maria Batista",
+          relation: "Filha",
+          phone: "(11) 9 9999-0001",
+        },
+        {
+          email: "pedro.batista@exemplo.com",
+          name: "Pedro Batista",
+          relation: "Filho",
+          phone: "(11) 9 9999-0002",
+        },
       ],
     },
     {
@@ -173,11 +256,27 @@ async function main() {
         },
       });
       await Promise.all(
-        p.contacts.map((c) =>
-          prisma.emergencyContact.create({
-            data: { patientId: profile.id, name: c.name, relation: c.relation, phone: c.phone },
-          })
-        )
+        p.contacts.map(async (c) => {
+          let contactUserId: string | undefined;
+
+          if (c.email) {
+            const contactAuthId = await getOrCreateAuthUser(c.email, c.name, "EMERGENCY_CONTACT");
+            const contactUser = await prisma.user.create({
+              data: { authId: contactAuthId, email: c.email, role: "EMERGENCY_CONTACT" },
+            });
+            contactUserId = contactUser.id;
+          }
+
+          return prisma.emergencyContact.create({
+            data: {
+              patientId: profile.id,
+              userId: contactUserId,
+              name: c.name,
+              relation: c.relation,
+              phone: c.phone,
+            },
+          });
+        })
       );
       return { user, profile };
     })
@@ -348,6 +447,7 @@ async function main() {
   console.log(`   Instituições : 2`);
   console.log(`   Médicos      : ${doctors.length}`);
   console.log(`   Pacientes    : ${patients.length}`);
+  console.log(`   Contatos Auth: 2`);
   console.log(`   Documentos   : 20`);
   console.log(`   Solicitações : 3 (1 ativa, 1 pendente, 1 expirada)`);
   console.log("\n📋 IDs para demo:");
@@ -361,6 +461,8 @@ async function main() {
   console.log("   ana.ferreira@medchain.demo    (médico — Clínica Geral)");
   console.log("   paulo.mendes@medchain.demo    (médico — Endocrinologia)");
   console.log("   joao.batista@exemplo.com      (paciente)");
+  console.log("   maria.batista@exemplo.com     (contato de emergência)");
+  console.log("   pedro.batista@exemplo.com     (contato de emergência)");
 }
 
 main()

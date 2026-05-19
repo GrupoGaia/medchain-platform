@@ -18,7 +18,7 @@ function RootLayoutNav() {
     } else if (session && inAuthGroup) {
       router.replace("/(tabs)" as never);
     }
-  }, [session, loading, segments]);
+  }, [session, loading, segments, router]);
 
   return (
     <AppStoreProvider>

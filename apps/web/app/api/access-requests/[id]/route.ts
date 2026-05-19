@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
+import { canManagePatient } from "@/lib/patient-access";
 
 export async function GET(
   request: NextRequest,
@@ -25,7 +26,7 @@ export async function GET(
   }
 
   const isProfessional = user.professionalProfile?.id === accessRequest.professionalId;
-  const isPatient = user.patientProfile?.id === accessRequest.patientId;
+  const isPatient = canManagePatient(user, accessRequest.patientId);
   if (!isProfessional && !isPatient) return forbidden();
 
   return NextResponse.json(accessRequest);
