@@ -1,14 +1,13 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { SESSION_COOKIE } from "@/lib/session";
+import { requireDoctor } from "@/lib/session";
 import { validateToken, formatMinutesRemaining } from "@medchain/domain";
 import { ArrowLeft, Clock, FileText, Image, Pill, AlertTriangle, ShieldOff } from "lucide-react";
 
 async function revokeToken(formData: FormData) {
   "use server";
+  const { doctorId } = await requireDoctor();
   const tokenId = formData.get("tokenId") as string;
   const patientId = formData.get("patientId") as string;
   if (!tokenId) return;
@@ -17,7 +16,9 @@ async function revokeToken(formData: FormData) {
     where: { id: tokenId },
     include: { patient: { include: { user: true } } },
   });
-  if (!token || token.status !== "ACTIVE") return;
+
+  // Confirma que o token pertence ao médico logado
+  if (!token || token.status !== "ACTIVE" || token.professionalId !== doctorId) return;
 
   await prisma.accessToken.update({
     where: { id: tokenId },
@@ -57,12 +58,9 @@ export default async function ProntuarioPage({
   params: Promise<{ patientId: string }>;
 }) {
   const { patientId } = await params;
-  const cookieStore = await cookies();
-  const doctorId = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!doctorId) redirect("/medico/login");
+  const { doctorId, user: doctorUser } = await requireDoctor();
 
-  const [doctor, patient, token, documents] = await Promise.all([
-    prisma.healthProfessionalProfile.findUnique({ where: { id: doctorId } }),
+  const [patient, token, documents] = await Promise.all([
     prisma.patientProfile.findUnique({
       where: { id: patientId },
       include: { emergencyContacts: true },
@@ -76,8 +74,6 @@ export default async function ProntuarioPage({
     }),
   ]);
 
-  if (!doctor) redirect("/medico/login");
-
   if (!patient) {
     return (
       <main className="flex min-h-screen items-center justify-center">
@@ -90,12 +86,12 @@ export default async function ProntuarioPage({
     ? validateToken({ status: token.status, expiresAt: token.expiresAt, revokedAt: token.revokedAt })
     : null;
 
-  // Log ACCESS se token válido
+  // Log ACCESS a cada carregamento quando token válido (append-only, correto para auditoria)
   if (token && validation?.valid) {
     await prisma.accessLog.create({
       data: {
         tokenId: token.id,
-        actorUserId: doctor.userId,
+        actorUserId: doctorUser.id,
         patientId,
         eventType: "ACCESS",
         channel: "WEB_PORTAL",
@@ -121,7 +117,7 @@ export default async function ProntuarioPage({
             </div>
             <span className="font-semibold text-gray-900">MedChain</span>
           </div>
-          <span className="ml-auto text-sm text-gray-500">{doctor.fullName}</span>
+          <span className="ml-auto text-sm text-gray-500">{doctorUser.professionalProfile?.fullName}</span>
         </div>
       </header>
 
@@ -149,7 +145,7 @@ export default async function ProntuarioPage({
         {validation?.valid && token && (
           <>
             {/* Banner de token */}
-            <div className="mb-6 flex items-center justify-between rounded-xl bg-teal-50 border border-teal-200 px-5 py-3">
+            <div className="mb-6 flex items-center justify-between rounded-xl border border-teal-200 bg-teal-50 px-5 py-3">
               <span className="flex items-center gap-2 text-sm font-medium text-teal-700">
                 <Clock size={15} />
                 Acesso expira em {formatMinutesRemaining(validation.minutesRemaining)}
@@ -205,7 +201,7 @@ export default async function ProntuarioPage({
                 </div>
 
                 {patient.allergies.length > 0 && (
-                  <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 p-4">
+                  <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
                     <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-amber-500" />
                     <div>
                       <p className="text-xs font-semibold text-amber-700">Alergias conhecidas</p>

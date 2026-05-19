@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const user = await getApiUser(request);
+  if (!user) return unauthorized();
+
   const { id } = await params;
 
   const accessRequest = await prisma.accessRequest.findUnique({
     where: { id },
     include: {
-      patient: { include: { user: true } },
+      patient: { include: { emergencyContacts: true } },
     },
   });
 
@@ -21,6 +25,12 @@ export async function POST(
     return NextResponse.json({ error: "Solicitação não está pendente" }, { status: 409 });
   }
 
+  const isPatient = user.patientProfile?.id === accessRequest.patientId;
+  const isEmergencyContact = accessRequest.patient.emergencyContacts.some(
+    (c) => c.userId === user.id
+  );
+  if (!isPatient && !isEmergencyContact) return forbidden();
+
   const updated = await prisma.accessRequest.update({
     where: { id },
     data: { status: "DENIED" },
@@ -28,7 +38,7 @@ export async function POST(
 
   await prisma.accessLog.create({
     data: {
-      actorUserId: accessRequest.patient.userId,
+      actorUserId: user.id,
       patientId: accessRequest.patientId,
       eventType: "DENY",
       channel: "MOBILE_APP",

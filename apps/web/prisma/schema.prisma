@@ -72,7 +72,7 @@ model PatientProfile {
   id                String   @id @default(uuid())
   userId            String   @unique @map("user_id")
   fullName          String   @map("full_name")
-  birthDate         DateTime @map("birth_date")
+  birthDate         DateTime? @map("birth_date")
   gender            String?
   bloodType         String?  @map("blood_type")
   allergies         String[]

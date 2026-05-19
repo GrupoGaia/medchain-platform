@@ -1,20 +1,16 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { SESSION_COOKIE } from "@/lib/session";
+import { requireDoctor } from "@/lib/session";
 import { CreateAccessRequestSchema } from "@medchain/api-contract";
 import { ArrowLeft } from "lucide-react";
 
 async function createRequest(formData: FormData) {
   "use server";
-  const cookieStore = await cookies();
-  const doctorId = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!doctorId) redirect("/medico/login");
+  const { doctorId } = await requireDoctor();
 
   const raw = {
     patientId: formData.get("patientId") as string,
-    professionalId: doctorId,
     scope: formData.get("scope") as string,
     durationMinutes: Number(formData.get("durationMinutes")),
     reason: (formData.get("reason") as string) || undefined,
@@ -23,16 +19,16 @@ async function createRequest(formData: FormData) {
   const result = CreateAccessRequestSchema.safeParse(raw);
   if (!result.success) redirect("/medico/solicitar?error=invalid");
 
+  const professional = await prisma.healthProfessionalProfile.findUniqueOrThrow({
+    where: { id: doctorId },
+    select: { userId: true },
+  });
+
   await prisma.accessRequest.create({
     data: {
       patientId: result.data.patientId,
-      professionalId: result.data.professionalId,
-      requestedById: (
-        await prisma.healthProfessionalProfile.findUniqueOrThrow({
-          where: { id: doctorId },
-          select: { userId: true },
-        })
-      ).userId,
+      professionalId: doctorId,
+      requestedById: professional.userId,
       scope: result.data.scope,
       durationMinutes: result.data.durationMinutes ?? 60,
       reason: result.data.reason,
@@ -49,9 +45,7 @@ export default async function SolicitarPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  const cookieStore = await cookies();
-  const doctorId = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!doctorId) redirect("/medico/login");
+  const { doctorId } = await requireDoctor();
 
   const [doctor, patients] = await Promise.all([
     prisma.healthProfessionalProfile.findUnique({ where: { id: doctorId } }),
@@ -100,9 +94,7 @@ export default async function SolicitarPage({
         <form action={createRequest} className="space-y-6 rounded-xl bg-white p-6 shadow-sm">
           {/* Paciente */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Paciente *
-            </label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Paciente *</label>
             <select
               name="patientId"
               required
@@ -119,9 +111,7 @@ export default async function SolicitarPage({
 
           {/* Escopo */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Dados solicitados *
-            </label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Dados solicitados *</label>
             <select
               name="scope"
               required
@@ -136,9 +126,7 @@ export default async function SolicitarPage({
 
           {/* Duração */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Duração do acesso *
-            </label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Duração do acesso *</label>
             <select
               name="durationMinutes"
               defaultValue="60"
@@ -182,7 +170,7 @@ export default async function SolicitarPage({
           </div>
         </form>
 
-        <p className="mt-4 text-xs text-gray-400 text-center">
+        <p className="mt-4 text-center text-xs text-gray-400">
           O paciente ou familiar receberá uma notificação e precisará aprovar antes do acesso ser liberado.
         </p>
       </main>
