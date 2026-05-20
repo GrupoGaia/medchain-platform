@@ -1,151 +1,116 @@
-import React, { createContext, useContext, useReducer } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { supabase } from "../services/supabase";
 import {
-  AccessRequest,
-  AccessToken,
-  AccessLog,
-  MOCK_ACCESS_REQUESTS,
-  MOCK_TOKENS,
-  MOCK_LOGS,
-  MOCK_PROFESSIONALS,
-} from "../services/mocks/data";
+  api,
+  type AccessRequestResponse,
+  type AccessTokenResponse,
+  type AuditLogResponse,
+} from "../services/api";
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
 
 interface AppState {
-  accessRequests: AccessRequest[];
-  tokens: AccessToken[];
-  logs: AccessLog[];
+  accessRequests: AccessRequestResponse[];
+  tokens: AccessTokenResponse[];
+  logs: AuditLogResponse[];
+  loading: boolean;
 }
 
 const initialState: AppState = {
-  accessRequests: MOCK_ACCESS_REQUESTS,
-  tokens: MOCK_TOKENS,
-  logs: MOCK_LOGS,
+  accessRequests: [],
+  tokens: [],
+  logs: [],
+  loading: true,
 };
-
-// ─── Actions ──────────────────────────────────────────────────────────────────
-
-type Action =
-  | { type: "APPROVE_REQUEST"; requestId: string }
-  | { type: "DENY_REQUEST"; requestId: string }
-  | { type: "REVOKE_TOKEN"; tokenId: string };
-
-function reducer(state: AppState, action: Action): AppState {
-  switch (action.type) {
-    case "APPROVE_REQUEST": {
-      const request = state.accessRequests.find((r) => r.id === action.requestId);
-      if (!request) return state;
-
-      const now = new Date();
-      const newToken: AccessToken = {
-        id: `token-${Date.now()}`,
-        requestId: request.id,
-        professional: request.professional,
-        scope: request.scope,
-        expiresAt: new Date(now.getTime() + request.durationMinutes * 60_000),
-        status: "ACTIVE",
-      };
-
-      const newLog: AccessLog = {
-        id: `log-${Date.now()}`,
-        eventType: "APPROVE",
-        description: "Acesso autorizado",
-        professional: `${request.professional.name} — ${request.professional.crm}`,
-        createdAt: "Agora",
-      };
-
-      return {
-        ...state,
-        accessRequests: state.accessRequests.map((r) =>
-          r.id === action.requestId ? { ...r, status: "APPROVED" } : r
-        ),
-        tokens: [...state.tokens, newToken],
-        logs: [newLog, ...state.logs],
-      };
-    }
-
-    case "DENY_REQUEST": {
-      const request = state.accessRequests.find((r) => r.id === action.requestId);
-      if (!request) return state;
-
-      const newLog: AccessLog = {
-        id: `log-${Date.now()}`,
-        eventType: "DENY",
-        description: "Acesso negado",
-        professional: `${request.professional.name} — ${request.professional.crm}`,
-        createdAt: "Agora",
-      };
-
-      return {
-        ...state,
-        accessRequests: state.accessRequests.map((r) =>
-          r.id === action.requestId ? { ...r, status: "DENIED" } : r
-        ),
-        logs: [newLog, ...state.logs],
-      };
-    }
-
-    case "REVOKE_TOKEN": {
-      const token = state.tokens.find((t) => t.id === action.tokenId);
-      if (!token) return state;
-
-      const newLog: AccessLog = {
-        id: `log-${Date.now()}`,
-        eventType: "REVOKE",
-        description: "Acesso revogado pelo paciente",
-        professional: `${token.professional.name} — ${token.professional.crm}`,
-        createdAt: "Agora",
-      };
-
-      return {
-        ...state,
-        tokens: state.tokens.map((t) =>
-          t.id === action.tokenId
-            ? { ...t, status: "REVOKED", revokedAt: new Date() }
-            : t
-        ),
-        logs: [newLog, ...state.logs],
-      };
-    }
-
-    default:
-      return state;
-  }
-}
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 interface AppContextValue {
   state: AppState;
-  approveRequest: (requestId: string) => void;
-  denyRequest: (requestId: string) => void;
-  revokeToken: (tokenId: string) => void;
-  activeTokens: AccessToken[];
-  pendingRequests: AccessRequest[];
+  approveRequest: (requestId: string) => Promise<void>;
+  denyRequest: (requestId: string) => Promise<void>;
+  revokeToken: (tokenId: string) => Promise<void>;
+  activeTokens: AccessTokenResponse[];
+  pendingRequests: AccessRequestResponse[];
+  refetch: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppStoreProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, setState] = useState<AppState>(initialState);
 
+  const fetchAll = useCallback(async () => {
+    setState((s) => ({ ...s, loading: true }));
+    try {
+      const [requests, tokens, logs] = await Promise.all([
+        api.getAllRequests(),
+        api.getActiveTokens(),
+        api.getAuditLogs(),
+      ]);
+      setState({ accessRequests: requests, tokens, logs, loading: false });
+    } catch {
+      setState((s) => ({ ...s, loading: false }));
+    }
+  }, []);
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) fetchAll();
+      else setState({ ...initialState, loading: false });
+    });
+
+    // Fetch imediato se já há sessão ativa
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) fetchAll();
+      else setState({ ...initialState, loading: false });
+    });
+
+    return () => subscription.unsubscribe();
+  }, [fetchAll]);
+
+  const approveRequest = useCallback(
+    async (requestId: string) => {
+      await api.approveRequest(requestId);
+      await fetchAll();
+    },
+    [fetchAll]
+  );
+
+  const denyRequest = useCallback(
+    async (requestId: string) => {
+      await api.denyRequest(requestId);
+      await fetchAll();
+    },
+    [fetchAll]
+  );
+
+  const revokeToken = useCallback(
+    async (tokenId: string) => {
+      await api.revokeToken(tokenId);
+      await fetchAll();
+    },
+    [fetchAll]
+  );
+
+  const now = new Date();
   const activeTokens = state.tokens.filter(
-    (t) => t.status === "ACTIVE" && t.expiresAt > new Date()
+    (t) => t.status === "ACTIVE" && new Date(t.expiresAt) > now
   );
-
-  const pendingRequests = state.accessRequests.filter(
-    (r) => r.status === "PENDING"
-  );
+  const pendingRequests = state.accessRequests.filter((r) => r.status === "PENDING");
 
   return (
     <AppContext.Provider
       value={{
         state,
-        approveRequest: (id) => dispatch({ type: "APPROVE_REQUEST", requestId: id }),
-        denyRequest: (id) => dispatch({ type: "DENY_REQUEST", requestId: id }),
-        revokeToken: (id) => dispatch({ type: "REVOKE_TOKEN", tokenId: id }),
+        approveRequest,
+        denyRequest,
+        revokeToken,
         activeTokens,
         pendingRequests,
+        refetch: fetchAll,
       }}
     >
       {children}

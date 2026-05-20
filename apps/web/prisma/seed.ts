@@ -1,10 +1,105 @@
 import { PrismaClient } from "@prisma/client";
 import { faker } from "@faker-js/faker/locale/pt_BR";
+import { createClient } from "@supabase/supabase-js";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+function loadEnvFile(fileName: string, override = false) {
+  const envPath = resolve(process.cwd(), fileName);
+  if (!existsSync(envPath)) return;
+
+  for (const rawLine of readFileSync(envPath, "utf8").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex === -1) continue;
+
+    const key = line.slice(0, separatorIndex).trim();
+    let value = line.slice(separatorIndex + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    if (override || process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadEnvFile(".env");
+loadEnvFile(".env.local", true);
+
+// Senha padrão de demonstração — NUNCA usar em produção
+const DEMO_PASSWORD = "medchain123";
 
 const prisma = new PrismaClient();
 
+function createSupabaseAdminClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar em apps/web/.env.local"
+    );
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+const supabaseAdmin = createSupabaseAdminClient();
+
+// Cria usuário no Supabase Auth ou reutiliza se já existir (idempotência)
+async function getOrCreateAuthUser(
+  email: string,
+  fullName: string,
+  role: string
+): Promise<string> {
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password: DEMO_PASSWORD,
+    email_confirm: true,
+    user_metadata: { fullName, role },
+  });
+
+  if (!error) return data.user.id;
+
+  // Usuário já existe — buscar UUID real
+  const { data: list } = await supabaseAdmin.auth.admin.listUsers({
+    page: 1,
+    perPage: 50,
+  });
+  const existing = list?.users.find((u) => u.email === email);
+  if (!existing) {
+    throw new Error(
+      `Não foi possível criar ou encontrar o usuário ${email}. Erro: ${error.message}`
+    );
+  }
+  return existing.id;
+}
+
 async function main() {
   console.log("🌱 Iniciando seed...");
+
+  // Verificar variáveis de ambiente necessárias
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !(process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY)
+  ) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar em apps/web/.env.local"
+    );
+  }
 
   await prisma.accessLog.deleteMany();
   await prisma.accessToken.deleteMany();
@@ -27,20 +122,18 @@ async function main() {
   ]);
 
   // ── Médicos ───────────────────────────────────────────────────────────────
+  // Emails fixos para que o login da demo seja reproduzível
   const doctorSeeds = [
-    { name: "Dr. Carlos Silva",  crm: "CRM-SP 123456", specialty: "Cardiologia",    instId: hospSaoLucas.id },
-    { name: "Dra. Ana Ferreira", crm: "CRM-SP 654321", specialty: "Clínica Geral",  instId: upaCentro.id },
-    { name: "Dr. Paulo Mendes",  crm: "CRM-SP 111222", specialty: "Endocrinologia", instId: hospSaoLucas.id },
+    { name: "Dr. Carlos Silva",  email: "carlos.silva@medchain.demo",  crm: "CRM-SP 123456", specialty: "Cardiologia",    instId: hospSaoLucas.id },
+    { name: "Dra. Ana Ferreira", email: "ana.ferreira@medchain.demo",  crm: "CRM-SP 654321", specialty: "Clínica Geral",  instId: upaCentro.id },
+    { name: "Dr. Paulo Mendes",  email: "paulo.mendes@medchain.demo",  crm: "CRM-SP 111222", specialty: "Endocrinologia", instId: hospSaoLucas.id },
   ];
 
   const doctors = await Promise.all(
     doctorSeeds.map(async (d) => {
+      const authId = await getOrCreateAuthUser(d.email, d.name, "HEALTH_PROFESSIONAL");
       const user = await prisma.user.create({
-        data: {
-          authId: faker.string.uuid(),
-          email: faker.internet.email({ firstName: d.name.replace(/Dr[a]?\.\s/, "") }),
-          role: "HEALTH_PROFESSIONAL",
-        },
+        data: { authId, email: d.email, role: "HEALTH_PROFESSIONAL" },
       });
       const profile = await prisma.healthProfessionalProfile.create({
         data: {
@@ -57,23 +150,52 @@ async function main() {
   );
 
   // ── Pacientes ─────────────────────────────────────────────────────────────
-  const patientSeeds = [
+  // Emails fixos para pacientes de demo; os demais são fictícios mas determinísticos
+  type ContactSeed = {
+    email?: string;
+    name: string;
+    relation: string;
+    phone: string;
+  };
+
+  type PatientSeed = {
+    email: string;
+    name: string;
+    birthDate: Date;
+    bloodType: string;
+    allergies: string[];
+    chronicConditions: string[];
+    continuousMeds: string[];
+    contacts: ContactSeed[];
+  };
+
+  const patientSeeds: PatientSeed[] = [
     {
-      name: "João Batista",
       email: "joao.batista@exemplo.com",
+      name: "João Batista",
       birthDate: new Date("1963-04-15"),
       bloodType: "A+",
       allergies: ["Penicilina", "AAS"],
       chronicConditions: ["Hipertensão arterial", "Pré-diabetes"],
       continuousMeds: ["Losartana 50mg", "Metformina 850mg"],
       contacts: [
-        { name: "Maria Batista", relation: "Filha", phone: "(11) 9 9999-0001" },
-        { name: "Pedro Batista", relation: "Filho", phone: "(11) 9 9999-0002" },
+        {
+          email: "maria.batista@exemplo.com",
+          name: "Maria Batista",
+          relation: "Filha",
+          phone: "(11) 9 9999-0001",
+        },
+        {
+          email: "pedro.batista@exemplo.com",
+          name: "Pedro Batista",
+          relation: "Filho",
+          phone: "(11) 9 9999-0002",
+        },
       ],
     },
     {
+      email: "paciente2@medchain.demo",
       name: faker.person.fullName(),
-      email: faker.internet.email(),
       birthDate: faker.date.birthdate({ min: 50, max: 80, mode: "age" }),
       bloodType: faker.helpers.arrayElement(["A+", "A-", "B+", "O+", "O-"]),
       allergies: [faker.helpers.arrayElement(["Dipirona", "Ibuprofeno", "Sulfa"])],
@@ -82,8 +204,8 @@ async function main() {
       contacts: [{ name: faker.person.fullName(), relation: "Cônjuge", phone: faker.phone.number() }],
     },
     {
+      email: "paciente3@medchain.demo",
       name: faker.person.fullName(),
-      email: faker.internet.email(),
       birthDate: faker.date.birthdate({ min: 40, max: 70, mode: "age" }),
       bloodType: faker.helpers.arrayElement(["B+", "O+", "AB-"]),
       allergies: [] as string[],
@@ -92,8 +214,8 @@ async function main() {
       contacts: [{ name: faker.person.fullName(), relation: "Filho(a)", phone: faker.phone.number() }],
     },
     {
+      email: "paciente4@medchain.demo",
       name: faker.person.fullName(),
-      email: faker.internet.email(),
       birthDate: faker.date.birthdate({ min: 60, max: 85, mode: "age" }),
       bloodType: faker.helpers.arrayElement(["O+", "A+"]),
       allergies: ["Contraste iodado"],
@@ -105,8 +227,8 @@ async function main() {
       ],
     },
     {
+      email: "paciente5@medchain.demo",
       name: faker.person.fullName(),
-      email: faker.internet.email(),
       birthDate: faker.date.birthdate({ min: 55, max: 75, mode: "age" }),
       bloodType: "B+",
       allergies: ["Penicilina"],
@@ -118,8 +240,9 @@ async function main() {
 
   const patients = await Promise.all(
     patientSeeds.map(async (p) => {
+      const authId = await getOrCreateAuthUser(p.email, p.name, "PATIENT");
       const user = await prisma.user.create({
-        data: { authId: faker.string.uuid(), email: p.email, role: "PATIENT" },
+        data: { authId, email: p.email, role: "PATIENT" },
       });
       const profile = await prisma.patientProfile.create({
         data: {
@@ -133,11 +256,27 @@ async function main() {
         },
       });
       await Promise.all(
-        p.contacts.map((c) =>
-          prisma.emergencyContact.create({
-            data: { patientId: profile.id, name: c.name, relation: c.relation, phone: c.phone },
-          })
-        )
+        p.contacts.map(async (c) => {
+          let contactUserId: string | undefined;
+
+          if (c.email) {
+            const contactAuthId = await getOrCreateAuthUser(c.email, c.name, "EMERGENCY_CONTACT");
+            const contactUser = await prisma.user.create({
+              data: { authId: contactAuthId, email: c.email, role: "EMERGENCY_CONTACT" },
+            });
+            contactUserId = contactUser.id;
+          }
+
+          return prisma.emergencyContact.create({
+            data: {
+              patientId: profile.id,
+              userId: contactUserId,
+              name: c.name,
+              relation: c.relation,
+              phone: c.phone,
+            },
+          });
+        })
       );
       return { user, profile };
     })
@@ -227,7 +366,7 @@ async function main() {
     },
   });
 
-  // 2. Pendente (para demo de aprovação)
+  // 2. Pendente (para demo de aprovação no mobile)
   await prisma.accessRequest.create({
     data: {
       patientId: joao.profile.id,
@@ -308,6 +447,7 @@ async function main() {
   console.log(`   Instituições : 2`);
   console.log(`   Médicos      : ${doctors.length}`);
   console.log(`   Pacientes    : ${patients.length}`);
+  console.log(`   Contatos Auth: 2`);
   console.log(`   Documentos   : 20`);
   console.log(`   Solicitações : 3 (1 ativa, 1 pendente, 1 expirada)`);
   console.log("\n📋 IDs para demo:");
@@ -316,6 +456,13 @@ async function main() {
   console.log(`   Dr. Carlos Silva (profileId)     : ${dr0.profile.id}`);
   console.log(`   Dra. Ana Ferreira (profileId)    : ${dr1.profile.id}`);
   console.log(`   Token ativo (tokenId)            : ${activeToken.id}`);
+  console.log("\n🔑 Credenciais de demo (senha: medchain123):");
+  console.log("   carlos.silva@medchain.demo    (médico — Cardiologia)");
+  console.log("   ana.ferreira@medchain.demo    (médico — Clínica Geral)");
+  console.log("   paulo.mendes@medchain.demo    (médico — Endocrinologia)");
+  console.log("   joao.batista@exemplo.com      (paciente)");
+  console.log("   maria.batista@exemplo.com     (contato de emergência)");
+  console.log("   pedro.batista@exemplo.com     (contato de emergência)");
 }
 
 main()

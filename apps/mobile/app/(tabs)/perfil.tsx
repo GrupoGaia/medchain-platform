@@ -1,10 +1,36 @@
+import { useState, useEffect } from "react";
 import { View, Text, ScrollView, SafeAreaView, TouchableOpacity } from "react-native";
 import { User, AlertTriangle, Pill, ChevronRight, LogOut } from "lucide-react-native";
-import { MOCK_PATIENT, MOCK_EMERGENCY_CONTACTS } from "../../src/services/mocks/data";
+import { api, type PatientProfileResponse } from "../../src/services/api";
+import { useAuth } from "../../src/context/AuthProvider";
+
+function getInitials(fullName: string): string {
+  return fullName
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 export default function PerfilScreen() {
-  const patient = MOCK_PATIENT;
-  const contacts = MOCK_EMERGENCY_CONTACTS;
+  const { signOut } = useAuth();
+  const [profile, setProfile] = useState<PatientProfileResponse | null>(null);
+
+  useEffect(() => {
+    api.getMyProfile().then(setProfile).catch(() => null);
+  }, []);
+
+  if (!profile) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-gray-50">
+        <Text className="text-gray-400">Carregando...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  const contacts = profile.emergencyContacts;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -14,10 +40,12 @@ export default function PerfilScreen() {
         {/* Avatar */}
         <View className="mb-6 items-center rounded-2xl bg-white py-8">
           <View className="mb-3 h-20 w-20 items-center justify-center rounded-full bg-teal-600">
-            <Text className="text-3xl font-bold text-white">{patient.initials}</Text>
+            <Text className="text-3xl font-bold text-white">{getInitials(profile.fullName)}</Text>
           </View>
-          <Text className="text-xl font-bold text-gray-900">{patient.name}</Text>
-          <Text className="text-sm text-gray-400">Tipo sanguíneo: {patient.bloodType}</Text>
+          <Text className="text-xl font-bold text-gray-900">{profile.fullName}</Text>
+          <Text className="text-sm text-gray-400">
+            Tipo sanguíneo: {profile.bloodType ?? "Não informado"}
+          </Text>
         </View>
 
         {/* Dados críticos */}
@@ -28,29 +56,35 @@ export default function PerfilScreen() {
           <View className="flex-row items-start gap-3 p-4">
             <AlertTriangle color="#F59E0B" size={18} />
             <View className="flex-1">
-              <Text className="text-xs text-gray-400 mb-1">Alergias</Text>
+              <Text className="mb-1 text-xs text-gray-400">Alergias</Text>
               <Text className="text-sm font-medium text-gray-900">
-                {patient.allergies.join(", ")}
+                {profile.allergies.length > 0
+                  ? profile.allergies.join(", ")
+                  : "Nenhuma registrada"}
               </Text>
             </View>
           </View>
-          <View className="h-px bg-gray-100 mx-4" />
+          <View className="mx-4 h-px bg-gray-100" />
           <View className="flex-row items-start gap-3 p-4">
             <Pill color="#6366F1" size={18} />
             <View className="flex-1">
-              <Text className="text-xs text-gray-400 mb-1">Condições crônicas</Text>
+              <Text className="mb-1 text-xs text-gray-400">Condições crônicas</Text>
               <Text className="text-sm font-medium text-gray-900">
-                {patient.chronicConditions.join(" · ")}
+                {profile.chronicConditions.length > 0
+                  ? profile.chronicConditions.join(" · ")
+                  : "Nenhuma registrada"}
               </Text>
             </View>
           </View>
-          <View className="h-px bg-gray-100 mx-4" />
+          <View className="mx-4 h-px bg-gray-100" />
           <View className="flex-row items-start gap-3 p-4">
             <Pill color="#0F766E" size={18} />
             <View className="flex-1">
-              <Text className="text-xs text-gray-400 mb-1">Uso contínuo</Text>
+              <Text className="mb-1 text-xs text-gray-400">Uso contínuo</Text>
               <Text className="text-sm font-medium text-gray-900">
-                {patient.continuousMeds.join(" · ")}
+                {profile.continuousMeds.length > 0
+                  ? profile.continuousMeds.join(" · ")
+                  : "Nenhum registrado"}
               </Text>
             </View>
           </View>
@@ -61,6 +95,11 @@ export default function PerfilScreen() {
           Contatos de emergência
         </Text>
         <View className="mb-6 rounded-2xl bg-white">
+          {contacts.length === 0 && (
+            <View className="p-4">
+              <Text className="text-sm text-gray-400">Nenhum contato cadastrado</Text>
+            </View>
+          )}
           {contacts.map((contato, i) => (
             <View key={contato.id}>
               <TouchableOpacity
@@ -78,7 +117,7 @@ export default function PerfilScreen() {
                 </View>
                 <ChevronRight color="#9CA3AF" size={16} />
               </TouchableOpacity>
-              {i < contacts.length - 1 && <View className="h-px bg-gray-100 mx-4" />}
+              {i < contacts.length - 1 && <View className="mx-4 h-px bg-gray-100" />}
             </View>
           ))}
         </View>
@@ -92,6 +131,7 @@ export default function PerfilScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          onPress={signOut}
           className="flex-row items-center justify-center gap-2 rounded-xl bg-red-50 py-4"
           accessibilityLabel="Sair da conta"
           accessibilityRole="button"

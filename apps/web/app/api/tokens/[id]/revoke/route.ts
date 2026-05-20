@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
+import { canManagePatient } from "@/lib/patient-access";
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const user = await getApiUser(request);
+  if (!user) return unauthorized();
+
   const { id } = await params;
 
-  const token = await prisma.accessToken.findUnique({
-    where: { id },
-    include: {
-      patient: { include: { user: true } },
-    },
-  });
+  const token = await prisma.accessToken.findUnique({ where: { id } });
 
   if (!token) {
     return NextResponse.json({ error: "Token não encontrado" }, { status: 404 });
@@ -21,16 +21,19 @@ export async function POST(
     return NextResponse.json({ error: "Token não está ativo" }, { status: 409 });
   }
 
-  const now = new Date();
+  const isPatient = canManagePatient(user, token.patientId);
+  const isProfessional = user.professionalProfile?.id === token.professionalId;
+  if (!isPatient && !isProfessional) return forbidden();
+
   const updated = await prisma.accessToken.update({
     where: { id },
-    data: { status: "REVOKED", revokedAt: now },
+    data: { status: "REVOKED", revokedAt: new Date() },
   });
 
   await prisma.accessLog.create({
     data: {
       tokenId: id,
-      actorUserId: token.patient.userId,
+      actorUserId: user.id,
       patientId: token.patientId,
       eventType: "REVOKE",
       channel: "MOBILE_APP",

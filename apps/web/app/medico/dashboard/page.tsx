@@ -1,22 +1,20 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { SESSION_COOKIE } from "@/lib/session";
+import { requireDoctor } from "@/lib/session";
+import { createSupabaseServer } from "@/lib/supabase/server";
 import { validateToken, formatMinutesRemaining } from "@medchain/domain";
 import { LogOut, Plus, Clock, AlertCircle } from "lucide-react";
 
 async function logout() {
   "use server";
-  const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE);
+  const supabase = await createSupabaseServer();
+  await supabase.auth.signOut();
   redirect("/medico/login");
 }
 
 export default async function DashboardPage() {
-  const cookieStore = await cookies();
-  const doctorId = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!doctorId) redirect("/medico/login");
+  const { doctorId } = await requireDoctor();
 
   const doctor = await prisma.healthProfessionalProfile.findUnique({
     where: { id: doctorId },

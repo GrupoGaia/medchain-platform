@@ -1,8 +1,32 @@
-import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { createSupabaseServer } from "./supabase/server";
+import { prisma } from "./prisma";
 
-export const SESSION_COOKIE = "medchain_doctor_id";
+export async function getCurrentUser() {
+  const supabase = await createSupabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
 
-export async function getDoctorIdFromSession(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return cookieStore.get(SESSION_COOKIE)?.value ?? null;
+  return prisma.user.findUnique({
+    where: { authId: user.id },
+    include: {
+      professionalProfile: true,
+      patientProfile: true,
+      contactFor: true,
+    },
+  });
+}
+
+export async function requireDoctor() {
+  const user = await getCurrentUser();
+  if (!user?.professionalProfile) redirect("/medico/login");
+  return { user, doctorId: user.professionalProfile.id };
+}
+
+export async function requirePatient() {
+  const user = await getCurrentUser();
+  if (!user?.patientProfile) redirect("/login");
+  return { user, patientId: user.patientProfile.id };
 }

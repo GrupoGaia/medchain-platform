@@ -7,8 +7,8 @@
 | Fase 0 | ✅ Concluída | Monorepo Turborepo, Next.js, Expo, packages compartilhados, CI |
 | Fase 1 | ✅ Concluída | Protótipo mobile navegável com mocks (AppStore, tela de autorização) |
 | Fase 2 | ✅ Concluída | API REST, banco migrado no Supabase, portal médico web funcional |
-| Fase 3 | — | Autenticação e controle de perfis |
-| Fase 4 | — | Documentos médicos e storage |
+| Fase 3 | ✅ Concluída em código | Autenticação, controle de perfis, RLS e integração mobile/API real |
+| Fase 4 | ⏳ Próxima | Documentos médicos e storage; começa com validação funcional final da Fase 3 |
 | Fase 5 | — | Qualidade, observabilidade e roteiro de demo |
 | Fase 6 | — | Pós-MVP (opcional, após apresentação) |
 
@@ -33,11 +33,6 @@
 - 20 documentos médicos distribuídos
 - 3 solicitações: 1 aprovada + token ativo (45min), 1 pendente, 1 expirada
 - Logs de auditoria correspondentes
-
-**IDs para demo:**
-- João Batista (patientProfileId): `255cd166-4ea8-4698-8224-c2189ba029e8`
-- Dr. Carlos Silva (profileId): `95e8dc16-93a4-4bb3-afad-6e592272aaec`
-- Token ativo: `54edbe18-f3e6-410a-bd11-95b87f5651a9`
 
 #### Route Handlers (`apps/web/app/api/`)
 
@@ -71,30 +66,53 @@
 
 ---
 
-## Fase 3 — Autenticação e controle de perfis
+## Fase 3 — Autenticação e controle de perfis ✅
 
 **Objetivo:** separar perfis e proteger as rotas.
 
-**Duração estimada:** 1 semana
+**Status:** Concluída em código em 2026-05-19. A validação funcional final com seed e fluxo ponta a ponta foi movida para o checkpoint inicial da Fase 4.
 
-### O que implementar
+### O que foi implementado
 
-- Supabase Auth com login por email/senha
-- Perfis: `PATIENT`, `EMERGENCY_CONTACT`, `HEALTH_PROFESSIONAL`, `ADMIN`
-- Middleware Next.js protegendo `/medico/*` para `HEALTH_PROFESSIONAL`
-- Mobile armazena sessão em `expo-secure-store` (nunca `AsyncStorage`)
-- RLS no Supabase com policies por perfil:
-  - Paciente só vê seus próprios dados
-  - Médico só vê pacientes com token ativo para ele
-  - Contato de emergência só vê pedidos endereçados a ele
-- Telas: login, cadastro (dados fictícios para demo), seleção de perfil
+- Supabase Auth com login por email/senha no portal médico e mobile.
+- Middleware Next.js protegendo `/medico/*` sem depender do cookie provisório da Fase 2.
+- Helpers server-side `getCurrentUser()`, `requireDoctor()`, `getApiUser()` com suporte a cookie web e Bearer token mobile.
+- APIs protegidas por role/ownership; `professionalId` é derivado da sessão.
+- Mobile com sessão persistida em `expo-secure-store`, telas `(auth)/login` e `(auth)/cadastro`, logout funcional e AppStore consumindo API real.
+- Endpoint `POST /api/users` para registrar usuário Prisma após signup mobile, limitado a `PATIENT` e `EMERGENCY_CONTACT`.
+- Acesso por contato de emergência vinculado ao paciente em solicitações, tokens, logs e perfil/documentos.
+- Seed preparado para 10 usuários de Auth: 3 médicos, 5 pacientes e 2 contatos de emergência do João Batista.
+- Migration `20260519120000_make_birthdate_optional` para permitir `birth_date` nulo.
+- Migration `20260519121000_enable_rls` com RLS em tabelas principais, policies de leitura e índices de suporte.
+- Testes adicionados para schema de signup, acesso paciente/contato e normalização da URL da API mobile.
+- Lint mobile configurado com `eslint-config-expo` e lint web corrigido com `@eslint/eslintrc`.
+
+### Checkpoint inicial da Fase 4
+
+Antes de iniciar storage/documentos, executar:
+
+```powershell
+cd apps/web
+node_modules/.bin/prisma migrate status
+node_modules/.bin/tsx prisma/seed.ts
+```
+
+O seed exige `SUPABASE_SERVICE_ROLE_KEY` em `apps/web/.env.local`. Essa chave não deve ser registrada em chat, docs ou Git.
+
+Depois do seed, validar manualmente:
+
+- Médico acessa `/medico/login`, entra no dashboard e cria uma solicitação.
+- Paciente João entra no mobile, vê a solicitação pendente e aprova.
+- Token ativo libera o prontuário/documentos para o médico correto.
+- Acesso sem sessão retorna 401/redirect.
+- Médico sem token ativo não acessa documentos.
+- Logout limpa sessão web/mobile.
 
 ### Definition of Done
 
-- Médico não consegue ver dados de paciente sem token válido, nem direto na API
-- Paciente não consegue listar outros pacientes
-- Sessão persiste ao fechar e reabrir o app
-- Logout limpa sessão de fato (sem token residual no secure store)
+- Código de autenticação, ownership e RLS implementado.
+- `pnpm typecheck`, `pnpm lint` e testes unitários adicionados passam localmente.
+- Validação ponta a ponta fica registrada como entrada obrigatória da Fase 4.
 
 ---
 
