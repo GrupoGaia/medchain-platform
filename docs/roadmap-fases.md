@@ -34,11 +34,6 @@
 - 3 solicitações: 1 aprovada + token ativo (45min), 1 pendente, 1 expirada
 - Logs de auditoria correspondentes
 
-**IDs para demo:**
-- João Batista (patientProfileId): `255cd166-4ea8-4698-8224-c2189ba029e8`
-- Dr. Carlos Silva (profileId): `95e8dc16-93a4-4bb3-afad-6e592272aaec`
-- Token ativo: `54edbe18-f3e6-410a-bd11-95b87f5651a9`
-
 #### Route Handlers (`apps/web/app/api/`)
 
 | Método | Rota | Descrição |
