@@ -2,6 +2,7 @@ import Constants from "expo-constants";
 import { supabase } from "./supabase";
 import { buildApiUrl } from "./api-url";
 
+
 const API_URL = ((Constants.expoConfig?.extra ?? {}) as { apiUrl?: string }).apiUrl ?? "";
 
 async function authedFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -54,6 +55,50 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ role, fullName }),
     }),
+
+  // Upload de documento (multipart/form-data)
+  uploadDocument: async (data: {
+    uri: string;
+    mimeType: string;
+    name: string;
+    title: string;
+    type: string;
+    issuedAt: string;
+  }) => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const formData = new FormData();
+    formData.append("file", {
+      uri: data.uri,
+      type: data.mimeType,
+      name: data.name,
+    } as unknown as Blob);
+    formData.append("title", data.title);
+    formData.append("type", data.type);
+    formData.append("issuedAt", data.issuedAt);
+
+    const headers: Record<string, string> = {};
+    if (session?.access_token) {
+      headers["Authorization"] = `Bearer ${session.access_token}`;
+    }
+
+    const res = await fetch(buildApiUrl(API_URL, "/api/me/documents"), {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      throw new Error(`API ${res.status}: ${text}`);
+    }
+    return res.json() as Promise<MedicalDocumentResponse>;
+  },
+
+  // URL assinada para download
+  getDocumentUrl: (docId: string) =>
+    authedFetch<{ signedUrl: string }>(`/api/documents/${docId}`),
 };
 
 // ─── Tipos das respostas da API ───────────────────────────────────────────────

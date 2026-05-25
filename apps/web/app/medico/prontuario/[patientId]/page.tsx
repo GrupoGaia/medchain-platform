@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireDoctor } from "@/lib/session";
 import { validateToken, formatMinutesRemaining } from "@medchain/domain";
 import { ArrowLeft, Clock, FileText, Image, Pill, AlertTriangle, ShieldOff } from "lucide-react";
+import { DownloadButton } from "./download-button";
 
 async function revokeToken(formData: FormData) {
   "use server";
@@ -241,9 +242,7 @@ export default async function ProntuarioPage({
                               </p>
                             </div>
                           </div>
-                          <span className="text-xs text-gray-300">
-                            {doc.mimeType === "application/pdf" ? "PDF" : "Imagem"}
-                          </span>
+                          <DownloadButton docId={doc.id} />
                         </div>
                       );
                     })}

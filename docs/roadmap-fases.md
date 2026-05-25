@@ -7,8 +7,8 @@
 | Fase 0 | ✅ Concluída | Monorepo Turborepo, Next.js, Expo, packages compartilhados, CI |
 | Fase 1 | ✅ Concluída | Protótipo mobile navegável com mocks (AppStore, tela de autorização) |
 | Fase 2 | ✅ Concluída | API REST, banco migrado no Supabase, portal médico web funcional |
-| Fase 3 | ✅ Concluída em código | Autenticação, controle de perfis, RLS e integração mobile/API real |
-| Fase 4 | ⏳ Próxima | Documentos médicos e storage; começa com validação funcional final da Fase 3 |
+| Fase 3 | ✅ Concluída | Autenticação, controle de perfis, RLS e integração mobile/API real |
+| Fase 4 | ⏳ Em andamento | Documentos médicos e storage |
 | Fase 5 | — | Qualidade, observabilidade e roteiro de demo |
 | Fase 6 | — | Pós-MVP (opcional, após apresentação) |
 
@@ -70,7 +70,7 @@
 
 **Objetivo:** separar perfis e proteger as rotas.
 
-**Status:** Concluída em código em 2026-05-19. A validação funcional final com seed e fluxo ponta a ponta foi movida para o checkpoint inicial da Fase 4.
+**Status:** Concluída em 2026-05-25. Validação funcional ponta a ponta confirmada: login médico no portal web, login do paciente no mobile, aprovação de solicitação, token ativo liberando prontuário, logs de auditoria e logout.
 
 ### O que foi implementado
 
@@ -86,27 +86,6 @@
 - Migration `20260519121000_enable_rls` com RLS em tabelas principais, policies de leitura e índices de suporte.
 - Testes adicionados para schema de signup, acesso paciente/contato e normalização da URL da API mobile.
 - Lint mobile configurado com `eslint-config-expo` e lint web corrigido com `@eslint/eslintrc`.
-
-### Checkpoint inicial da Fase 4
-
-Antes de iniciar storage/documentos, executar:
-
-```powershell
-cd apps/web
-node_modules/.bin/prisma migrate status
-node_modules/.bin/tsx prisma/seed.ts
-```
-
-O seed exige `SUPABASE_SERVICE_ROLE_KEY` em `apps/web/.env.local`. Essa chave não deve ser registrada em chat, docs ou Git.
-
-Depois do seed, validar manualmente:
-
-- Médico acessa `/medico/login`, entra no dashboard e cria uma solicitação.
-- Paciente João entra no mobile, vê a solicitação pendente e aprova.
-- Token ativo libera o prontuário/documentos para o médico correto.
-- Acesso sem sessão retorna 401/redirect.
-- Médico sem token ativo não acessa documentos.
-- Logout limpa sessão web/mobile.
 
 ### Definition of Done
 
