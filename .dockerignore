@@ -1,0 +1,14 @@
+node_modules
+.pnpm-store
+.turbo
+.next
+dist
+.expo
+coverage
+.git
+apps/web/.env
+apps/web/.env.local
+apps/mobile/.env.local
+.env
+.env.local
+*.log

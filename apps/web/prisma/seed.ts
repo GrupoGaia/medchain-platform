@@ -31,7 +31,7 @@ function loadEnvFile(fileName: string, override = false) {
 }
 
 loadEnvFile(".env");
-loadEnvFile(".env.local", true);
+loadEnvFile(".env.local");
 
 // Senha padrão de demonstração — NUNCA usar em produção
 const DEMO_PASSWORD = "medchain123";

@@ -28,6 +28,47 @@ Isso sobe:
 - `apps/web` em `http://localhost:3000` (portal médico Next.js)
 - `apps/mobile` com QR code para Expo Go
 
+## Desenvolvimento local com Docker + Supabase
+
+Pré-requisitos adicionais:
+
+- Docker Desktop
+- Supabase CLI
+
+Suba o Supabase local:
+
+```bash
+supabase start
+```
+
+Copie as chaves exibidas pelo comando para:
+
+- `apps/web/.env.local`, usando `apps/web/.env.local.example` como base
+- `apps/mobile/.env.local`, usando `apps/mobile/.env.example` como base
+
+Aplique migrations e seed no banco local:
+
+```bash
+cd apps/web
+node_modules/.bin/prisma migrate dev
+node_modules/.bin/tsx prisma/seed.ts
+```
+
+Suba web e mobile em Docker:
+
+```bash
+docker compose up --build
+```
+
+Serviços principais:
+
+- Web/API: `http://localhost:3000`
+- Supabase API: `http://localhost:54321`
+- Supabase Studio: `http://localhost:54323`
+- Expo Metro: `http://localhost:8081`
+
+Para testar no celular físico com Expo Go, configure `EXPO_PUBLIC_API_URL` com o IP local da máquina, não `localhost`.
+
 ## Estrutura
 
 ```
