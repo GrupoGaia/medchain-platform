@@ -18,7 +18,7 @@ export async function createSupabaseServer() {
               cookieStore.set(name, value, options)
             );
           } catch {
-            // Chamado de um Server Component — cookies de resposta não são mutáveis aqui
+            // Chamado de um Server Component: cookies de resposta não são mutáveis aqui
           }
         },
       },

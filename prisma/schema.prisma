@@ -1,4 +1,4 @@
-// Prisma schema — MedChain
+// Prisma schema do MedChain
 // Banco: Supabase Postgres
 // Conexão via pooler para ambientes serverless (Vercel)
 
@@ -45,7 +45,7 @@ enum ChannelType {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// User — conta autenticada (ligada ao Supabase Auth pelo id)
+// User: conta autenticada (ligada ao Supabase Auth pelo id)
 // ────────────────────────────────────────────────────────────────────────────
 
 model User {
@@ -170,7 +170,7 @@ model MedicalDocument {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// AccessRequest — solicitação de acesso feita pelo médico
+// AccessRequest: solicitação de acesso feita pelo médico
 // ────────────────────────────────────────────────────────────────────────────
 
 model AccessRequest {
@@ -195,7 +195,7 @@ model AccessRequest {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// AccessToken — token gerado após aprovação
+// AccessToken: token gerado após aprovação
 // ────────────────────────────────────────────────────────────────────────────
 
 model AccessToken {
@@ -218,7 +218,7 @@ model AccessToken {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// AccessLog — auditoria append-only (nunca deletar registros)
+// AccessLog: auditoria append-only (nunca deletar registros)
 // ────────────────────────────────────────────────────────────────────────────
 
 model AccessLog {

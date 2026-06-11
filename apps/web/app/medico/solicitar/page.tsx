@@ -103,7 +103,7 @@ export default async function SolicitarPage({
               <option value="">Selecione o paciente</option>
               {patients.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.fullName} — {p.bloodType ?? "Tipo sang. não informado"}
+                  {p.fullName} - {p.bloodType ?? "Tipo sang. não informado"}
                 </option>
               ))}
             </select>
@@ -149,7 +149,7 @@ export default async function SolicitarPage({
               name="reason"
               rows={3}
               maxLength={500}
-              placeholder="Ex: Consulta de retorno — avaliação cardiológica"
+              placeholder="Ex: Consulta de retorno para avaliação cardiológica"
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             />
           </div>

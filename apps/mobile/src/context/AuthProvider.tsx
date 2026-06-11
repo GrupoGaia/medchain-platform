@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         await api.createUser("PATIENT", fullName);
       } catch {
-        // Usuário criado no Auth; tentativa de criar registro Prisma falhou — não bloqueia login
+        // Usuário criado no Auth; tentativa de criar registro Prisma falhou, não bloqueia login
       }
     }
 

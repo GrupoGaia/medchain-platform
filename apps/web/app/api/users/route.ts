@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
 import { CreateMobileUserSchema } from "@/lib/mobile-user-schema";
 
-// POST /api/users — cria registro Prisma após signUp no mobile (idempotente)
+// POST /api/users: cria registro Prisma após signUp no mobile (idempotente)
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) {

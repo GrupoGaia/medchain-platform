@@ -1,4 +1,4 @@
-// Prisma schema — MedChain
+// Prisma schema do MedChain
 // Banco: Supabase Postgres
 
 generator client {
@@ -217,7 +217,7 @@ model AccessToken {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// AccessLog — append-only
+// AccessLog: append-only
 // ────────────────────────────────────────────────────────────────────────────
 
 model AccessLog {

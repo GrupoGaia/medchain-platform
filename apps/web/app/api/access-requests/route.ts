@@ -5,7 +5,7 @@ import { getManagedPatientIds } from "@/lib/patient-access";
 import { CreateAccessRequestSchema } from "@medchain/api-contract";
 import type { AccessRequestStatus } from "@prisma/client";
 
-// GET /api/access-requests?status=PENDING — retorna requests do paciente logado
+// GET /api/access-requests?status=PENDING: retorna requests do paciente logado
 export async function GET(request: NextRequest) {
   const user = await getApiUser(request);
   if (!user) return unauthorized();

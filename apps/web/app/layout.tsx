@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "MedChain — Portal Médico",
+  title: "MedChain - Portal Médico",
   description: "Acesso seguro a prontuários com autorização do paciente",
 };
 

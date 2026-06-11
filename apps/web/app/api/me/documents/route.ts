@@ -7,7 +7,7 @@ import { uploadToStorage } from "@/lib/storage";
 const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const MAX_BYTES = 10 * 1024 * 1024;
 
-// GET /api/me/documents — documentos do paciente logado
+// GET /api/me/documents: documentos do paciente logado
 export async function GET(request: NextRequest) {
   const user = await getApiUser(request);
   if (!user) return unauthorized();
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(documents);
 }
 
-// POST /api/me/documents — upload de documento pelo paciente
+// POST /api/me/documents: upload de documento pelo paciente
 export async function POST(request: NextRequest) {
   const user = await getApiUser(request);
   if (!user) return unauthorized();

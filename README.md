@@ -13,7 +13,7 @@ Monorepo principal do MedChain. Contém o app mobile (paciente/familiar), o port
 
 ```bash
 pnpm install
-cp apps/web/.env.example apps/web/.env.local
+cp apps/web/.env.local.example apps/web/.env.local
 cp apps/mobile/.env.example apps/mobile/.env.local
 # preencher as variáveis de ambiente nos arquivos .env.local
 ```
@@ -96,7 +96,12 @@ pnpm build         # build completo
 
 ## Branches
 
-- `main` — código estável
-- `develop` — integração do grupo
-- `feat/*` — novas funcionalidades
-- `fix/*` — correções
+- `main`: código estável
+- `develop`: integração do grupo
+- `feat/*`: novas funcionalidades
+- `fix/*`: correções
+
+## Documentação
+
+Documentação do projeto (roadmap, arquitetura, decisões) está em:  
+https://github.com/MedChainGaia/medchain-docs

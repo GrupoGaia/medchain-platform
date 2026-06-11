@@ -76,7 +76,7 @@ export default async function LoginPage({
         </form>
 
         <div className="mt-8 rounded-lg bg-gray-50 p-4">
-          <p className="mb-2 text-xs font-semibold text-gray-500">Demo — senha: medchain123</p>
+          <p className="mb-2 text-xs font-semibold text-gray-500">Demo - senha: medchain123</p>
           <ul className="space-y-1">
             {DEMO_USERS.map((u) => (
               <li key={u.email} className="text-xs">

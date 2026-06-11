@@ -68,7 +68,7 @@ export default function AutorizacaoScreen() {
           <Text className="text-teal-100 text-base">← Voltar</Text>
         </TouchableOpacity>
         <Text className="text-white text-xl font-bold">Pedido de acesso</Text>
-        <Text className="text-teal-100 text-sm mt-1">MedChain — Canal seguro</Text>
+        <Text className="text-teal-100 text-sm mt-1">MedChain - Canal seguro</Text>
       </View>
 
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>

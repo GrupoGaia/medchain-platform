@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss";
 
-// Cores definidas inline — mesmos valores de packages/ui-tokens/src/colors.ts
+// Cores definidas inline, mesmos valores de packages/ui-tokens/src/colors.ts
 const brand = {
   "50": "#F0FDFA",
   "100": "#CCFBF1",

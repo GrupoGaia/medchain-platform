@@ -33,7 +33,7 @@ function loadEnvFile(fileName: string, override = false) {
 loadEnvFile(".env");
 loadEnvFile(".env.local");
 
-// Senha padrão de demonstração — NUNCA usar em produção
+// Senha padrão de demonstração. Não usar em produção.
 const DEMO_PASSWORD = "medchain123";
 
 const prisma = new PrismaClient();
@@ -74,7 +74,7 @@ async function getOrCreateAuthUser(
 
   if (!error) return data.user.id;
 
-  // Usuário já existe — buscar UUID real
+  // Usuário já existe, buscar UUID real
   const { data: list } = await supabaseAdmin.auth.admin.listUsers({
     page: 1,
     perPage: 50,
@@ -89,7 +89,7 @@ async function getOrCreateAuthUser(
 }
 
 async function main() {
-  console.log("🌱 Iniciando seed...");
+  console.log("Iniciando seed...");
 
   // Verificar variáveis de ambiente necessárias
   if (
@@ -284,31 +284,31 @@ async function main() {
 
   // ── Documentos médicos (20) ───────────────────────────────────────────────
   const docTemplates = [
-    // João Batista — 5 docs
+    // João Batista: 5 docs
     { title: "Hemograma completo",              type: "EXAM",         mime: "application/pdf" },
     { title: "Raio-X de tórax",                type: "EXAM",         mime: "image/jpeg"      },
     { title: "Perfil lipídico",                type: "EXAM",         mime: "application/pdf" },
     { title: "Ecocardiograma",                 type: "REPORT",       mime: "application/pdf" },
     { title: "Receita Losartana + Metformina", type: "PRESCRIPTION", mime: "application/pdf" },
-    // Paciente 2 — 4 docs
+    // Paciente 2: 4 docs
     { title: "Ultrassonografia abdominal",     type: "IMAGING",      mime: "image/jpeg"      },
     { title: "Espirometria",                   type: "REPORT",       mime: "application/pdf" },
     { title: "Glicemia em jejum",              type: "EXAM",         mime: "application/pdf" },
     { title: "HbA1c",                          type: "EXAM",         mime: "application/pdf" },
-    // Paciente 3 — 4 docs
+    // Paciente 3: 4 docs
     { title: "Eletrocardiograma",              type: "REPORT",       mime: "application/pdf" },
     { title: "Densitometria óssea",            type: "IMAGING",      mime: "image/jpeg"      },
     { title: "Receita Atenolol",               type: "PRESCRIPTION", mime: "application/pdf" },
     { title: "Ressonância magnética lombar",   type: "IMAGING",      mime: "image/jpeg"      },
-    // Paciente 4 — 4 docs
+    // Paciente 4: 4 docs
     { title: "Creatinina sérica",              type: "EXAM",         mime: "application/pdf" },
     { title: "Sumário de urina",               type: "EXAM",         mime: "application/pdf" },
     { title: "Tomografia de tórax",            type: "IMAGING",      mime: "image/jpeg"      },
     { title: "Receita Furosemida",             type: "PRESCRIPTION", mime: "application/pdf" },
-    // Paciente 5 — 3 docs
+    // Paciente 5: 3 docs
     { title: "Fundo de olho",                  type: "REPORT",       mime: "image/jpeg"      },
     { title: "TSH e T4 livre",                 type: "EXAM",         mime: "application/pdf" },
-    { title: "Laudo cirúrgico — apendicectomia", type: "REPORT",     mime: "application/pdf" },
+    { title: "Laudo cirúrgico de apendicectomia", type: "REPORT",     mime: "application/pdf" },
   ];
 
   const docsPerPatient = [
@@ -350,7 +350,7 @@ async function main() {
       status: "APPROVED",
       scope: "Prontuário completo",
       durationMinutes: 60,
-      reason: "Consulta de retorno — avaliação cardiológica",
+      reason: "Consulta de retorno para avaliação cardiológica",
       channelType: "WEB_PORTAL",
     },
   });
@@ -443,23 +443,23 @@ async function main() {
     ],
   });
 
-  console.log("\n✅ Seed concluído!");
+  console.log("\nSeed concluído.");
   console.log(`   Instituições : 2`);
   console.log(`   Médicos      : ${doctors.length}`);
   console.log(`   Pacientes    : ${patients.length}`);
   console.log(`   Contatos Auth: 2`);
   console.log(`   Documentos   : 20`);
   console.log(`   Solicitações : 3 (1 ativa, 1 pendente, 1 expirada)`);
-  console.log("\n📋 IDs para demo:");
+  console.log("\nIDs para demo:");
   console.log(`   João Batista (patientProfileId) : ${joao.profile.id}`);
   console.log(`   João Batista (userId)            : ${joao.user.id}`);
   console.log(`   Dr. Carlos Silva (profileId)     : ${dr0.profile.id}`);
   console.log(`   Dra. Ana Ferreira (profileId)    : ${dr1.profile.id}`);
   console.log(`   Token ativo (tokenId)            : ${activeToken.id}`);
-  console.log("\n🔑 Credenciais de demo (senha: medchain123):");
-  console.log("   carlos.silva@medchain.demo    (médico — Cardiologia)");
-  console.log("   ana.ferreira@medchain.demo    (médico — Clínica Geral)");
-  console.log("   paulo.mendes@medchain.demo    (médico — Endocrinologia)");
+  console.log("\nCredenciais de demo (senha: medchain123):");
+  console.log("   carlos.silva@medchain.demo    (médico, Cardiologia)");
+  console.log("   ana.ferreira@medchain.demo    (médico, Clínica Geral)");
+  console.log("   paulo.mendes@medchain.demo    (médico, Endocrinologia)");
   console.log("   joao.batista@exemplo.com      (paciente)");
   console.log("   maria.batista@exemplo.com     (contato de emergência)");
   console.log("   pedro.batista@exemplo.com     (contato de emergência)");

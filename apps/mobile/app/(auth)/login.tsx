@@ -95,7 +95,7 @@ export default function LoginScreen() {
         {/* Demo hint */}
         <View className="mt-6 rounded-xl bg-white/70 px-4 py-3">
           <Text className="text-center text-xs font-semibold text-gray-500">
-            Demo — senha: medchain123
+            Demo - senha: medchain123
           </Text>
           <Text className="mt-0.5 text-center text-xs text-gray-400">
             joao.batista@exemplo.com (paciente)

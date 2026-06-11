@@ -4,7 +4,7 @@ import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
 import { getManagedPatientIds } from "@/lib/patient-access";
 import type { AccessTokenStatus } from "@prisma/client";
 
-// GET /api/access-tokens?status=ACTIVE — tokens do paciente logado
+// GET /api/access-tokens?status=ACTIVE: tokens do paciente logado
 export async function GET(request: NextRequest) {
   const user = await getApiUser(request);
   if (!user) return unauthorized();
