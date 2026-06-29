@@ -71,31 +71,17 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="relative">
+            <div className="relative hidden lg:block">
               <div className="absolute -inset-4 rounded-3xl bg-primary/5 blur-2xl" />
-              <div className="relative rounded-2xl border bg-white p-8 shadow-xl">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-50 text-primary">
-                      <HeartPulse size={24} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Paciente</p>
-                      <p className="text-lg font-semibold text-foreground">João Batista</p>
-                    </div>
-                    <span className="ml-auto rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                      Acesso ativo
-                    </span>
+              <div className="relative flex aspect-square items-center justify-center rounded-2xl border bg-white p-8 shadow-xl">
+                <div className="text-center">
+                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary-50 text-primary">
+                    <Shield size={40} />
                   </div>
-                  <div className="space-y-3 rounded-xl bg-muted/50 p-4">
-                    <div className="h-2 w-3/4 rounded bg-muted" />
-                    <div className="h-2 w-1/2 rounded bg-muted" />
-                    <div className="h-2 w-5/6 rounded bg-muted" />
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Hemograma completo</span>
-                    <span>Expira em 42 min</span>
-                  </div>
+                  <p className="mt-4 text-lg font-semibold text-foreground">Soberania do paciente</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Dados protegidos e acessados apenas com autorização.
+                  </p>
                 </div>
               </div>
             </div>
