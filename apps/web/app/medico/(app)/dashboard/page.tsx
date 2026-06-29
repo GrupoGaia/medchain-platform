@@ -2,15 +2,17 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireDoctor } from "@/lib/session";
-import { validateToken, formatMinutesRemaining } from "@medchain/domain";
+import { validateToken } from "@medchain/domain";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/medchain/page-header";
 import { StatCard } from "@/components/medchain/stat-card";
 import { EmptyState } from "@/components/medchain/empty-state";
+import { CountdownBadge } from "@/components/medchain/countdown-badge";
+import { ActivityCard } from "@/components/medchain/activity-card";
 import { cn } from "@/lib/utils";
-import { Clock, AlertCircle, Plus, FileText, Stethoscope } from "lucide-react";
+import { Clock, AlertCircle, Plus, FileText, Stethoscope, History } from "lucide-react";
 
 export default async function DashboardPage() {
   const { doctorId } = await requireDoctor();
@@ -21,7 +23,7 @@ export default async function DashboardPage() {
   });
   if (!doctor) redirect("/medico/login");
 
-  const [pendingRequests, allActiveTokens] = await Promise.all([
+  const [pendingRequests, allActiveTokens, recentLogs] = await Promise.all([
     prisma.accessRequest.findMany({
       where: { professionalId: doctorId, status: "PENDING" },
       include: { patient: true },
@@ -31,6 +33,12 @@ export default async function DashboardPage() {
       where: { professionalId: doctorId, status: "ACTIVE" },
       include: { patient: true },
       orderBy: { expiresAt: "asc" },
+    }),
+    prisma.accessLog.findMany({
+      where: { actorUserId: doctorId },
+      include: { patient: true },
+      orderBy: { createdAt: "desc" },
+      take: 5,
     }),
   ]);
 
@@ -53,7 +61,6 @@ export default async function DashboardPage() {
         </Link>
       </PageHeader>
 
-      {/* Resumo */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           title="Acessos ativos"
@@ -77,72 +84,97 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* Tokens ativos */}
-      {validTokens.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">Acessos autorizados</h2>
-          <div className="grid gap-3">
-            {validTokens.map((token) => {
-              const minutesRemaining = token.validation.valid ? token.validation.minutesRemaining : 0;
-              return (
-                <Card key={token.id} className="border shadow-sm">
-                  <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="space-y-1">
-                      <p className="font-semibold text-foreground">{token.patient.fullName}</p>
-                      <p className="text-sm text-muted-foreground">{token.scope}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Badge variant="secondary" className="gap-1 text-amber-700">
-                        <Clock size={13} />
-                        {formatMinutesRemaining(minutesRemaining)}
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="space-y-6">
+          {validTokens.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">Acessos autorizados</h2>
+              <div className="grid gap-3">
+                {validTokens.map((token) => {
+                  const minutesRemaining = token.validation.valid ? token.validation.minutesRemaining : 0;
+                  return (
+                    <Card key={token.id} className="border shadow-sm">
+                      <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="space-y-1">
+                          <p className="font-semibold text-foreground">{token.patient.fullName}</p>
+                          <p className="text-sm text-muted-foreground">{token.scope}</p>
+                        </div>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                          <CountdownBadge minutesRemaining={minutesRemaining} totalMinutes={60} />
+                          <Link
+                            href={`/medico/prontuario/${token.patientId}`}
+                            className={cn(buttonVariants())}
+                          >
+                            Abrir prontuário
+                          </Link>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {pendingRequests.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">Aguardando autorização do paciente</h2>
+              <div className="grid gap-3">
+                {pendingRequests.map((req) => (
+                  <Card key={req.id} className="border shadow-sm">
+                    <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="space-y-1">
+                        <p className="font-semibold text-foreground">{req.patient.fullName}</p>
+                        <p className="text-sm text-muted-foreground">{req.scope}</p>
+                        {req.reason && <p className="text-xs text-muted-foreground/80">{req.reason}</p>}
+                      </div>
+                      <Badge variant="secondary" className="w-fit gap-1 bg-amber-50 text-amber-700 hover:bg-amber-100">
+                        <AlertCircle size={12} />
+                        Pendente
                       </Badge>
-                      <Link
-                        href={`/medico/prontuario/${token.patientId}`}
-                        className={cn(buttonVariants())}
-                      >
-                        Abrir prontuário
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
-      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          )}
 
-      {/* Pendentes */}
-      {pendingRequests.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">Aguardando autorização do paciente</h2>
-          <div className="grid gap-3">
-            {pendingRequests.map((req) => (
-              <Card key={req.id} className="border shadow-sm">
-                <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <p className="font-semibold text-foreground">{req.patient.fullName}</p>
-                    <p className="text-sm text-muted-foreground">{req.scope}</p>
-                    {req.reason && <p className="text-xs text-muted-foreground/80">{req.reason}</p>}
-                  </div>
-                  <Badge variant="secondary" className="w-fit gap-1 bg-amber-50 text-amber-700 hover:bg-amber-100">
-                    <AlertCircle size={12} />
-                    Pendente
-                  </Badge>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
+          {validTokens.length === 0 && pendingRequests.length === 0 && (
+            <EmptyState
+              icon={FileText}
+              title="Nenhum acesso ativo"
+              description="Você ainda não possui acessos autorizados. Solicite o primeiro acesso a um prontuário."
+              action={{ label: "Solicitar acesso ao prontuário", href: "/medico/solicitar" }}
+            />
+          )}
+        </div>
 
-      {validTokens.length === 0 && pendingRequests.length === 0 && (
-        <EmptyState
-          icon={FileText}
-          title="Nenhum acesso ativo"
-          description="Você ainda não possui acessos autorizados. Solicite o primeiro acesso a um prontuário."
-          action={{ label: "Solicitar acesso ao prontuário", href: "/medico/solicitar" }}
-        />
-      )}
+        <aside className="space-y-4">
+          <div className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
+            <History size={18} className="text-primary" />
+            Atividade recente
+          </div>
+          {recentLogs.length === 0 ? (
+            <Card className="border shadow-sm">
+              <CardContent className="p-5 text-sm text-muted-foreground">
+                Nenhuma atividade registrada recentemente.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {recentLogs.map((log) => (
+                <ActivityCard
+                  key={log.id}
+                  eventType={log.eventType}
+                  channel={log.channel}
+                  createdAt={log.createdAt}
+                  patientName={log.patient.fullName}
+                />
+              ))}
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }
