@@ -9,20 +9,21 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PageHeader } from "@/components/medchain/page-header";
 import { EmptyState } from "@/components/medchain/empty-state";
-import { DownloadButton } from "./download-button";
+import { DocumentCard } from "@/components/medchain/document-card";
+import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
   Clock,
   FileText,
-  Image,
-  Pill,
-  AlertTriangle,
   ShieldOff,
   User,
   Droplet,
+  AlertTriangle,
   Activity,
   FlaskConical,
+  History,
+  Calendar,
 } from "lucide-react";
 
 async function revokeToken(formData: FormData) {
@@ -56,20 +57,6 @@ async function revokeToken(formData: FormData) {
 
   revalidatePath(`/medico/prontuario/${patientId}`);
 }
-
-const DOC_TYPE_ICON: Record<string, React.ElementType> = {
-  EXAM: FileText,
-  REPORT: FileText,
-  PRESCRIPTION: Pill,
-  IMAGING: Image,
-};
-
-const DOC_TYPE_LABEL: Record<string, string> = {
-  EXAM: "Exame",
-  REPORT: "Laudo",
-  PRESCRIPTION: "Receita",
-  IMAGING: "Imagem",
-};
 
 interface InfoItemProps {
   icon: React.ElementType;
@@ -105,7 +92,7 @@ export default async function ProntuarioPage({
   const { patientId } = await params;
   const { doctorId, user: doctorUser } = await requireDoctor();
 
-  const [patient, token, documents] = await Promise.all([
+  const [patient, token, documents, logs] = await Promise.all([
     prisma.patientProfile.findUnique({
       where: { id: patientId },
       include: { emergencyContacts: true },
@@ -116,6 +103,11 @@ export default async function ProntuarioPage({
     prisma.medicalDocument.findMany({
       where: { patientId },
       orderBy: { issuedAt: "desc" },
+    }),
+    prisma.accessLog.findMany({
+      where: { patientId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
     }),
   ]);
 
@@ -137,16 +129,33 @@ export default async function ProntuarioPage({
     : null;
 
   if (token && validation?.valid) {
-    await prisma.accessLog.create({
-      data: {
-        tokenId: token.id,
-        actorUserId: doctorUser.id,
-        patientId,
-        eventType: "ACCESS",
-        channel: "WEB_PORTAL",
-      },
-    }).catch(() => {});
+    await prisma.accessLog
+      .create({
+        data: {
+          tokenId: token.id,
+          actorUserId: doctorUser.id,
+          patientId,
+          eventType: "ACCESS",
+          channel: "WEB_PORTAL",
+        },
+      })
+      .catch(() => {});
   }
+
+  const groupedDocuments = documents.reduce<Record<string, typeof documents>>((acc, doc) => {
+    if (!acc[doc.type]) acc[doc.type] = [];
+    acc[doc.type].push(doc);
+    return acc;
+  }, {});
+
+  const documentTypes = Object.keys(groupedDocuments).sort();
+
+  const typeLabel: Record<string, string> = {
+    EXAM: "Exames",
+    REPORT: "Laudos",
+    PRESCRIPTION: "Receitas",
+    IMAGING: "Imagens",
+  };
 
   return (
     <div className="space-y-6">
@@ -233,54 +242,109 @@ export default async function ProntuarioPage({
               </Card>
 
               {patient.allergies.length > 0 && (
-                <Alert className="border-amber-200 bg-amber-50 text-amber-900 [&>svg]:text-amber-600">
-                  <AlertTriangle size={18} />
-                  <AlertTitle className="text-amber-900">Alergias conhecidas</AlertTitle>
-                  <AlertDescription className="text-amber-800">
+                <Alert className="border-red-200 bg-red-50 text-red-900 [&>svg]:text-red-600">
+                  <AlertTriangle size={20} />
+                  <AlertTitle className="text-red-900">Alergias conhecidas</AlertTitle>
+                  <AlertDescription className="text-base font-semibold text-red-800">
                     {patient.allergies.join(" · ")}
                   </AlertDescription>
                 </Alert>
               )}
+
+              {patient.emergencyContacts.length > 0 && (
+                <Card className="border shadow-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <User size={16} className="text-primary" />
+                      Contatos de emergência
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {patient.emergencyContacts.map((contact) => (
+                      <div key={contact.id} className="text-sm">
+                        <p className="font-medium text-foreground">{contact.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {contact.relation} · {contact.phone}
+                        </p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">Documentos</h2>
-                <Badge variant="secondary">{documents.length}</Badge>
-              </div>
-
-              {documents.length === 0 ? (
-                <EmptyState
-                  icon={FileText}
-                  title="Nenhum documento cadastrado"
-                  description="O paciente ainda não possui documentos no prontuário."
-                />
-              ) : (
-                <div className="space-y-3">
-                  {documents.map((doc) => {
-                    const Icon = DOC_TYPE_ICON[doc.type] ?? FileText;
-                    return (
-                      <Card key={doc.id} className="border shadow-sm transition-shadow hover:shadow-md">
-                        <CardContent className="flex items-center justify-between p-4">
-                          <div className="flex items-center gap-4">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary">
-                              <Icon size={18} />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-foreground">{doc.title}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {DOC_TYPE_LABEL[doc.type] ?? doc.type} ·{" "}
-                                {new Date(doc.issuedAt).toLocaleDateString("pt-BR")}
-                              </p>
-                            </div>
-                          </div>
-                          <DownloadButton docId={doc.id} />
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+            <div className="space-y-6">
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold tracking-tight text-foreground">Documentos</h2>
+                  <Badge variant="secondary">{documents.length}</Badge>
                 </div>
-              )}
+
+                {documents.length === 0 ? (
+                  <EmptyState
+                    icon={FileText}
+                    title="Nenhum documento cadastrado"
+                    description="O paciente ainda não possui documentos no prontuário."
+                  />
+                ) : (
+                  <div className="space-y-6">
+                    {documentTypes.map((type) => (
+                      <div key={type} className="space-y-3">
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          {typeLabel[type] ?? type}
+                        </h3>
+                        <div className="space-y-3">
+                          {groupedDocuments[type].map((doc) => (
+                            <DocumentCard
+                              key={doc.id}
+                              id={doc.id}
+                              title={doc.title}
+                              type={doc.type}
+                              mimeType={doc.mimeType}
+                              issuedAt={doc.issuedAt}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-4">
+                <div className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
+                  <History size={18} className="text-primary" />
+                  Histórico de acessos
+                </div>
+                {logs.length === 0 ? (
+                  <Card className="border shadow-sm">
+                    <CardContent className="p-5 text-sm text-muted-foreground">
+                      Nenhum acesso registrado.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card className="border shadow-sm">
+                    <CardContent className="divide-y p-0">
+                      {logs.map((log) => (
+                        <div key={log.id} className="flex items-center justify-between px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <Calendar size={16} className="text-muted-foreground" />
+                            <span className="text-sm text-foreground">
+                              {log.eventType === "ACCESS" && "Acesso ao prontuário"}
+                              {log.eventType === "APPROVE" && "Acesso aprovado"}
+                              {log.eventType === "REVOKE" && "Acesso encerrado"}
+                              {log.eventType === "DENY" && "Acesso negado"}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDateTime(log.createdAt)}
+                          </span>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+              </section>
             </div>
           </div>
         </>
