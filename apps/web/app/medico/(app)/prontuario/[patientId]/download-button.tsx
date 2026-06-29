@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function DownloadButton({ docId }: { docId: string }) {
   const [loading, setLoading] = useState(false);
@@ -10,10 +11,10 @@ export function DownloadButton({ docId }: { docId: string }) {
     try {
       const res = await fetch(`/api/documents/${docId}`);
       if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string };
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(err.error ?? "Erro ao gerar link");
       }
-      const { signedUrl } = await res.json() as { signedUrl: string };
+      const { signedUrl } = (await res.json()) as { signedUrl: string };
       window.open(signedUrl, "_blank");
     } catch (e) {
       alert(e instanceof Error ? e.message : "Não foi possível baixar o documento.");
@@ -23,13 +24,15 @@ export function DownloadButton({ docId }: { docId: string }) {
   }
 
   return (
-    <button
+    <Button
       onClick={handleDownload}
       disabled={loading}
-      className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-300 hover:text-teal-700 disabled:opacity-50"
+      variant="outline"
+      size="sm"
+      className="gap-1.5"
     >
-      <Download size={12} />
+      <Download size={14} />
       {loading ? "..." : "Baixar"}
-    </button>
+    </Button>
   );
 }
