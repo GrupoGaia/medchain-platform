@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PublicHeader } from "@/components/medchain/public-header";
 import { Logo } from "@/components/medchain/logo";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, AlertCircle } from "lucide-react";
+import { ArrowLeft, AlertCircle, ShieldCheck, Lock } from "lucide-react";
 
 async function signIn(formData: FormData) {
   "use server";
@@ -91,22 +91,31 @@ export default async function LoginPage({
                   name="password"
                   required
                   autoComplete="current-password"
+                  placeholder="••••••••"
                 />
               </div>
               <button type="submit" className={cn(buttonVariants(), "w-full")}>
-                Entrar
+                <Lock size={16} className="mr-2" />
+                Entrar com segurança
               </button>
             </form>
 
-            <div className="mt-8 rounded-lg bg-muted/60 p-4">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Demo — senha: medchain123
+            <div className="mt-6 rounded-lg border border-primary-100 bg-primary-50/50 p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium text-primary">
+                <ShieldCheck size={16} />
+                Ambiente de demonstração
+              </div>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Use uma das contas abaixo. Todas têm a senha:
               </p>
+              <code className="mb-3 block rounded bg-white px-2 py-1 text-center text-xs font-semibold text-foreground">
+                medchain123
+              </code>
               <ul className="space-y-1.5">
                 {DEMO_USERS.map((u) => (
-                  <li key={u.email} className="text-xs">
-                    <span className="font-mono text-foreground">{u.email}</span>
-                    <span className="ml-1 text-muted-foreground">({u.label})</span>
+                  <li key={u.email} className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-foreground">{u.label}</span>
+                    <span className="font-mono text-muted-foreground">{u.email}</span>
                   </li>
                 ))}
               </ul>
