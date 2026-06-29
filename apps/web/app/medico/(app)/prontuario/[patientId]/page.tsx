@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -160,13 +161,22 @@ export default async function ProntuarioPage({
   return (
     <div className="space-y-6">
       <PageHeader title={patient.fullName} description="Prontuário do paciente">
-        <Link
-          href="/medico/dashboard"
-          className={cn(buttonVariants({ variant: "outline" }), "gap-1.5")}
-        >
-          <ArrowLeft size={16} />
-          Voltar
-        </Link>
+        <div className="flex items-center gap-3">
+          <Image
+            src="/img/patient-avatar-joao.png"
+            alt={patient.fullName}
+            width={48}
+            height={48}
+            className="rounded-full border bg-muted object-cover"
+          />
+          <Link
+            href="/medico/dashboard"
+            className={cn(buttonVariants({ variant: "outline" }), "gap-1.5")}
+          >
+            <ArrowLeft size={16} />
+            Voltar
+          </Link>
+        </div>
       </PageHeader>
 
       {!validation?.valid && (
@@ -281,11 +291,20 @@ export default async function ProntuarioPage({
                 </div>
 
                 {documents.length === 0 ? (
-                  <EmptyState
-                    icon={FileText}
-                    title="Nenhum documento cadastrado"
-                    description="O paciente ainda não possui documentos no prontuário."
-                  />
+                  <div className="flex flex-col items-center rounded-2xl border bg-white p-8 text-center shadow-sm">
+                    <Image
+                      src="/img/empty-state-documents.png"
+                      alt="Nenhum documento cadastrado"
+                      width={240}
+                      height={192}
+                      className="mb-4 rounded-xl object-cover"
+                    />
+                    <EmptyState
+                      icon={FileText}
+                      title="Nenhum documento cadastrado"
+                      description="O paciente ainda não possui documentos no prontuário."
+                    />
+                  </div>
                 ) : (
                   <div className="space-y-6">
                     {documentTypes.map((type) => (

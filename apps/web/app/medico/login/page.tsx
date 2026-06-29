@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServer } from "@/lib/supabase/server";
@@ -40,7 +41,19 @@ export default async function LoginPage({
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-white">
       <PublicHeader />
 
-      <main className="flex min-h-screen flex-col items-center justify-center px-4 py-24">
+      <main className="flex min-h-screen flex-col items-center justify-center px-4 py-24 lg:flex-row lg:gap-12">
+        <div className="relative mb-8 hidden max-w-sm lg:block">
+          <div className="absolute -inset-4 rounded-3xl bg-primary/5 blur-2xl" />
+          <Image
+            src="/img/security-shield.png"
+            alt="Escudo de segurança representando proteção de dados médicos"
+            width={400}
+            height={320}
+            className="relative rounded-2xl border bg-white object-cover shadow-xl"
+            priority
+          />
+        </div>
+
         <Card className="w-full max-w-md border shadow-lg">
           <CardContent className="p-8">
             <Link

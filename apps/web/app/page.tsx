@@ -1,8 +1,8 @@
+import Image from "next/image";
 import { ArrowRight, Shield, Lock, Clock, FileCheck, HeartPulse } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { PublicHeader } from "@/components/medchain/public-header";
 import { FeatureCard } from "@/components/medchain/feature-card";
-import { StepCard } from "@/components/medchain/step-card";
 import { Footer } from "@/components/medchain/footer";
 import { cn } from "@/lib/utils";
 
@@ -35,11 +35,31 @@ const features = [
 ];
 
 const steps = [
-  { title: "Médico solicita acesso", description: "O profissional pede autorização para visualizar o prontuário, informando o motivo e a duração desejada." },
-  { title: "Paciente ou familiar recebe", description: "A notificação chega ao app móvel do paciente ou de um contato de emergência vinculado." },
-  { title: "Autorização temporária", description: "Após aprovação, um token de acesso temporário é gerado com prazo de expiração configurável." },
-  { title: "Acesso seguro ao prontuário", description: "O médico visualiza dados e documentos enquanto o token permanece ativo." },
-  { title: "Auditoria automática", description: "Cada acesso é registrado em log, garantindo rastreabilidade para o paciente." },
+  {
+    title: "Médico solicita acesso",
+    description: "O profissional pede autorização para visualizar o prontuário, informando o motivo e a duração desejada.",
+    image: "/img/how-it-works/step-1-request.png",
+  },
+  {
+    title: "Paciente ou familiar recebe",
+    description: "A notificação chega ao app móvel do paciente ou de um contato de emergência vinculado.",
+    image: "/img/how-it-works/step-2-notify.png",
+  },
+  {
+    title: "Autorização temporária",
+    description: "Após aprovação, um token de acesso temporário é gerado com prazo de expiração configurável.",
+    image: "/img/how-it-works/step-3-token.png",
+  },
+  {
+    title: "Acesso seguro ao prontuário",
+    description: "O médico visualiza dados e documentos enquanto o token permanece ativo.",
+    image: "/img/how-it-works/step-4-access.png",
+  },
+  {
+    title: "Auditoria automática",
+    description: "Cada acesso é registrado em log, garantindo rastreabilidade para o paciente.",
+    image: "/img/how-it-works/step-5-audit.png",
+  },
 ];
 
 export default function Home() {
@@ -73,17 +93,14 @@ export default function Home() {
 
             <div className="relative hidden lg:block">
               <div className="absolute -inset-4 rounded-3xl bg-primary/5 blur-2xl" />
-              <div className="relative flex aspect-square items-center justify-center rounded-2xl border bg-white p-8 shadow-xl">
-                <div className="text-center">
-                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary-50 text-primary">
-                    <Shield size={40} />
-                  </div>
-                  <p className="mt-4 text-lg font-semibold text-foreground">Soberania do paciente</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Dados protegidos e acessados apenas com autorização.
-                  </p>
-                </div>
-              </div>
+              <Image
+                src="/img/hero-doctor.png"
+                alt="Médica acessando prontuário de forma segura"
+                width={600}
+                height={500}
+                className="relative rounded-2xl border bg-white object-cover shadow-xl"
+                priority
+              />
             </div>
           </div>
         </section>
@@ -109,7 +126,27 @@ export default function Home() {
           </div>
           <div className="rounded-2xl border bg-white p-8 shadow-sm">
             {steps.map((step, index) => (
-              <StepCard key={step.title} step={index + 1} {...step} />
+              <div key={step.title} className="relative flex gap-4">
+                <div className="flex flex-col items-center">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                    {index + 1}
+                  </div>
+                  {index < steps.length - 1 && <div className="mt-2 h-full w-px bg-primary-100" />}
+                </div>
+                <div className="flex flex-1 flex-col gap-4 pb-8 sm:flex-row sm:items-start">
+                  <div className="flex-1">
+                    <h3 className="text-base font-semibold text-foreground">{step.title}</h3>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{step.description}</p>
+                  </div>
+                  <Image
+                    src={step.image}
+                    alt={step.title}
+                    width={160}
+                    height={128}
+                    className="shrink-0 rounded-xl border bg-muted/30 object-cover"
+                  />
+                </div>
+              </div>
             ))}
           </div>
         </section>

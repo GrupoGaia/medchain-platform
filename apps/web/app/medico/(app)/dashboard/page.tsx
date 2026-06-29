@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -95,9 +96,18 @@ export default async function DashboardPage() {
                   return (
                     <Card key={token.id} className="border shadow-sm">
                       <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="space-y-1">
-                          <p className="font-semibold text-foreground">{token.patient.fullName}</p>
-                          <p className="text-sm text-muted-foreground">{token.scope}</p>
+                        <div className="flex items-center gap-3">
+                          <Image
+                            src="/img/patient-avatar-joao.png"
+                            alt={token.patient.fullName}
+                            width={40}
+                            height={40}
+                            className="rounded-full border bg-muted object-cover"
+                          />
+                          <div className="space-y-1">
+                            <p className="font-semibold text-foreground">{token.patient.fullName}</p>
+                            <p className="text-sm text-muted-foreground">{token.scope}</p>
+                          </div>
                         </div>
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                           <CountdownBadge minutesRemaining={minutesRemaining} totalMinutes={60} />
@@ -140,12 +150,21 @@ export default async function DashboardPage() {
           )}
 
           {validTokens.length === 0 && pendingRequests.length === 0 && (
-            <EmptyState
-              icon={FileText}
-              title="Nenhum acesso ativo"
-              description="Você ainda não possui acessos autorizados. Solicite o primeiro acesso a um prontuário."
-              action={{ label: "Solicitar acesso ao prontuário", href: "/medico/solicitar" }}
-            />
+            <div className="flex flex-col items-center rounded-2xl border bg-white p-8 text-center shadow-sm">
+              <Image
+                src="/img/empty-state-access.png"
+                alt="Nenhum acesso ativo"
+                width={240}
+                height={192}
+                className="mb-4 rounded-xl object-cover"
+              />
+              <EmptyState
+                icon={FileText}
+                title="Nenhum acesso ativo"
+                description="Você ainda não possui acessos autorizados. Solicite o primeiro acesso a um prontuário."
+                action={{ label: "Solicitar acesso ao prontuário", href: "/medico/solicitar" }}
+              />
+            </div>
           )}
         </div>
 
