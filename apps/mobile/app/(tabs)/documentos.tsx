@@ -20,11 +20,14 @@ const DOC_TYPE_LABEL: Record<string, string> = {
   IMAGING: "Imagem",
 };
 
+const DOC_TYPE_OPTIONS = Object.entries(DOC_TYPE_LABEL);
+
 export default function DocumentosScreen() {
   const [documents, setDocuments] = useState<MedicalDocumentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selectedType, setSelectedType] = useState("EXAM");
 
   const loadDocuments = useCallback(async () => {
     try {
@@ -58,7 +61,7 @@ export default function DocumentosScreen() {
         mimeType: asset.mimeType ?? "application/pdf",
         name: asset.name ?? "documento",
         title: asset.name?.replace(/\.[^.]+$/, "") ?? "Documento",
-        type: "EXAM",
+        type: selectedType,
         issuedAt: new Date().toISOString().split("T")[0]!,
       });
       await loadDocuments();
@@ -117,6 +120,36 @@ export default function DocumentosScreen() {
             {uploading ? "Enviando..." : "Adicionar"}
           </Text>
         </TouchableOpacity>
+      </View>
+
+      <View className="mb-4 rounded-xl bg-white p-4 shadow-sm">
+        <Text className="text-sm font-semibold text-gray-900">
+          Tipo do próximo documento
+        </Text>
+        <View className="mt-3 flex-row flex-wrap gap-2">
+          {DOC_TYPE_OPTIONS.map(([value, label]) => {
+            const active = selectedType === value;
+            return (
+              <TouchableOpacity
+                key={value}
+                onPress={() => setSelectedType(value)}
+                className={`rounded-full border px-3 py-2 ${
+                  active
+                    ? "border-teal-600 bg-teal-50"
+                    : "border-gray-200 bg-white"
+                }`}
+              >
+                <Text
+                  className={`text-xs font-medium ${
+                    active ? "text-teal-700" : "text-gray-600"
+                  }`}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       {documents.length === 0 ? (

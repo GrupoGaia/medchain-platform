@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
 import { getManagedPatientIds } from "@/lib/patient-access";
-import { uploadToStorage } from "@/lib/storage";
-
-const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png"];
-const MAX_BYTES = 10 * 1024 * 1024;
+import { deleteFromStorage, uploadToStorage } from "@/lib/storage";
+import { validateMedicalDocumentUpload } from "@/lib/document-upload";
 
 // GET /api/me/documents: documentos do paciente logado
 export async function GET(request: NextRequest) {
@@ -42,39 +40,43 @@ export async function POST(request: NextRequest) {
   const type = formData.get("type") as string | null;
   const issuedAt = formData.get("issuedAt") as string | null;
 
-  if (!file || !title || !type || !issuedAt) {
-    return NextResponse.json(
-      { error: "Campos obrigatórios: file, title, type, issuedAt" },
-      { status: 400 }
-    );
-  }
-
-  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-    return NextResponse.json(
-      { error: "Tipo não permitido. Use PDF, JPEG ou PNG." },
-      { status: 422 }
-    );
-  }
-
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "Arquivo muito grande. Máximo 10 MB." }, { status: 422 });
+  const validation = validateMedicalDocumentUpload({ file, title, type, issuedAt });
+  if (!validation.success) {
+    return NextResponse.json({ error: validation.error }, { status: validation.status });
   }
 
   const docId = crypto.randomUUID();
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const storageKey = await uploadToStorage(patientId, docId, buffer, file.type);
+  const buffer = Buffer.from(await file!.arrayBuffer());
+  let storageKey: string;
 
-  const document = await prisma.medicalDocument.create({
-    data: {
-      id: docId,
-      patientId,
-      title,
-      type,
-      storageKey,
-      mimeType: file.type,
-      issuedAt: new Date(issuedAt),
-    },
-  });
+  try {
+    storageKey = await uploadToStorage(patientId, docId, buffer, validation.data.mimeType);
+  } catch {
+    return NextResponse.json(
+      { error: "Não foi possível salvar o arquivo no storage." },
+      { status: 502 }
+    );
+  }
 
-  return NextResponse.json(document, { status: 201 });
+  try {
+    const document = await prisma.medicalDocument.create({
+      data: {
+        id: docId,
+        patientId,
+        title: validation.data.title,
+        type: validation.data.type,
+        storageKey,
+        mimeType: validation.data.mimeType,
+        issuedAt: validation.data.issuedAt,
+      },
+    });
+
+    return NextResponse.json(document, { status: 201 });
+  } catch {
+    await deleteFromStorage(storageKey).catch(() => {});
+    return NextResponse.json(
+      { error: "Não foi possível registrar o documento." },
+      { status: 500 }
+    );
+  }
 }

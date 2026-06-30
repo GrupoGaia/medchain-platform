@@ -3,8 +3,8 @@ values (
   'medical-documents',
   'medical-documents',
   false,
-  20971520,
-  array['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+  10485760,
+  array['application/pdf', 'image/jpeg', 'image/png']
 )
 on conflict (id) do update set
   name = excluded.name,

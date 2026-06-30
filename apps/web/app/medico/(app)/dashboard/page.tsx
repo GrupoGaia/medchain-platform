@@ -12,11 +12,12 @@ import { StatCard } from "@/components/medchain/stat-card";
 import { EmptyState } from "@/components/medchain/empty-state";
 import { CountdownBadge } from "@/components/medchain/countdown-badge";
 import { ActivityCard } from "@/components/medchain/activity-card";
+import { buildDoctorRecentLogsWhere } from "@/lib/audit-log";
 import { cn } from "@/lib/utils";
 import { Clock, AlertCircle, Plus, FileText, Stethoscope, History } from "lucide-react";
 
 export default async function DashboardPage() {
-  const { doctorId } = await requireDoctor();
+  const { doctorId, user } = await requireDoctor();
 
   const doctor = await prisma.healthProfessionalProfile.findUnique({
     where: { id: doctorId },
@@ -36,7 +37,7 @@ export default async function DashboardPage() {
       orderBy: { expiresAt: "asc" },
     }),
     prisma.accessLog.findMany({
-      where: { actorUserId: doctorId },
+      where: buildDoctorRecentLogsWhere(user.id),
       include: { patient: true },
       orderBy: { createdAt: "desc" },
       take: 5,
