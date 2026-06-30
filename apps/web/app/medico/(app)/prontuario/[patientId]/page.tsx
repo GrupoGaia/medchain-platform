@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PageHeader } from "@/components/medchain/page-header";
 import { EmptyState } from "@/components/medchain/empty-state";
 import { DocumentCard } from "@/components/medchain/document-card";
+import { buildAccessRevocationLogData } from "@/lib/audit-log";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -29,14 +30,12 @@ import {
 
 async function revokeToken(formData: FormData) {
   "use server";
-  const { doctorId } = await requireDoctor();
+  const { doctorId, user: doctorUser } = await requireDoctor();
   const tokenId = formData.get("tokenId") as string;
-  const patientId = formData.get("patientId") as string;
   if (!tokenId) return;
 
   const token = await prisma.accessToken.findUnique({
     where: { id: tokenId },
-    include: { patient: { include: { user: true } } },
   });
 
   if (!token || token.status !== "ACTIVE" || token.professionalId !== doctorId) return;
@@ -47,16 +46,15 @@ async function revokeToken(formData: FormData) {
   });
 
   await prisma.accessLog.create({
-    data: {
+    data: buildAccessRevocationLogData({
       tokenId,
-      actorUserId: token.patient.userId,
+      actorUserId: doctorUser.id,
       patientId: token.patientId,
-      eventType: "REVOKE",
       channel: "WEB_PORTAL",
-    },
+    }),
   });
 
-  revalidatePath(`/medico/prontuario/${patientId}`);
+  revalidatePath(`/medico/prontuario/${token.patientId}`);
 }
 
 interface InfoItemProps {
@@ -206,7 +204,6 @@ export default async function ProntuarioPage({
               O acesso expira em {formatMinutesRemaining(validation.minutesRemaining)}.
               <form action={revokeToken} className="flex">
                 <input type="hidden" name="tokenId" value={token.id} />
-                <input type="hidden" name="patientId" value={patientId} />
                 <button
                   type="submit"
                   className={cn(
