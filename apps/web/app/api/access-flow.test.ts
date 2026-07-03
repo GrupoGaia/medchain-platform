@@ -71,6 +71,11 @@ vi.mock("@/lib/storage", () => ({
   createSignedUrl: vi.fn(async (storageKey: string) => `https://storage.local/${storageKey}?signed=1`),
 }));
 
+vi.mock("@/lib/api-error", () => ({
+  getRequestId: vi.fn(() => "test-request-id"),
+  reportApiError: vi.fn(),
+}));
+
 vi.mock("@/lib/patient-access", () => ({
   getManagedPatientIds: (user: DemoUser) => {
     const ids = new Set<string>();

@@ -4,6 +4,7 @@ import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
 import { getManagedPatientIds } from "@/lib/patient-access";
 import { deleteFromStorage, uploadToStorage } from "@/lib/storage";
 import { validateMedicalDocumentUpload } from "@/lib/document-upload";
+import { getRequestId, reportApiError } from "@/lib/api-error";
 
 // GET /api/me/documents: documentos do paciente logado
 export async function GET(request: NextRequest) {
@@ -28,6 +29,8 @@ export async function POST(request: NextRequest) {
 
   const patientId = user.patientProfile.id;
 
+  const requestId = getRequestId(request);
+
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -51,7 +54,13 @@ export async function POST(request: NextRequest) {
 
   try {
     storageKey = await uploadToStorage(patientId, docId, buffer, validation.data.mimeType);
-  } catch {
+  } catch (error) {
+    reportApiError(error, {
+      action: "upload_document_storage",
+      requestId,
+      userId: user.id,
+      status: 502,
+    });
     return NextResponse.json(
       { error: "Não foi possível salvar o arquivo no storage." },
       { status: 502 }
@@ -72,8 +81,14 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(document, { status: 201 });
-  } catch {
+  } catch (error) {
     await deleteFromStorage(storageKey).catch(() => {});
+    reportApiError(error, {
+      action: "create_document_record",
+      requestId,
+      userId: user.id,
+      status: 500,
+    });
     return NextResponse.json(
       { error: "Não foi possível registrar o documento." },
       { status: 500 }
