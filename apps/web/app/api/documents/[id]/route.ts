@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
 import { getManagedPatientIds } from "@/lib/patient-access";
 import { createSignedUrl } from "@/lib/storage";
+import { getRequestId, reportApiError } from "@/lib/api-error";
 
 export async function GET(
   request: NextRequest,
@@ -10,6 +11,8 @@ export async function GET(
 ) {
   const user = await getApiUser(request);
   if (!user) return unauthorized();
+
+  const requestId = getRequestId(request);
 
   const { id } = await params;
 
@@ -36,7 +39,13 @@ export async function GET(
   try {
     const signedUrl = await createSignedUrl(doc.storageKey, 60);
     return NextResponse.json({ signedUrl });
-  } catch {
+  } catch (error) {
+    reportApiError(error, {
+      action: "create_signed_url",
+      requestId,
+      userId: user.id,
+      status: 404,
+    });
     return NextResponse.json(
       { error: "Arquivo não disponível no storage." },
       { status: 404 }
