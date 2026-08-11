@@ -11,5 +11,9 @@ const nextConfig: NextConfig = {
 
 export default withSentryConfig(nextConfig, {
   silent: !process.env.CI,
-  disableLogger: true,
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
 });
