@@ -1,4 +1,6 @@
 import type { Config } from "tailwindcss";
+import forms from "@tailwindcss/forms";
+import typography from "@tailwindcss/typography";
 
 // Cores definidas inline, mesmos valores de packages/ui-tokens/src/colors.ts
 const brand = {
@@ -99,7 +101,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [require("@tailwindcss/forms"), require("@tailwindcss/typography")],
+  plugins: [forms, typography],
 };
 
 export default config;
