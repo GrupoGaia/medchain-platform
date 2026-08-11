@@ -5,6 +5,7 @@ import { Shield, FileText, Bell } from "lucide-react-native";
 import { useAppStore } from "../../src/context/AppStore";
 import { api, type PatientProfileResponse, type MedicalDocumentResponse } from "../../src/services/api";
 import { formatMinutesRemaining } from "@medchain/domain";
+import { colors } from "@medchain/ui-tokens";
 
 function getInitials(fullName: string): string {
   return fullName
@@ -42,7 +43,7 @@ export default function InicioScreen() {
   const initials = profile ? getInitials(profile.fullName) : "...";
 
   return (
-    <SafeAreaView className="flex-1 bg-teal-50">
+    <SafeAreaView className="flex-1 bg-brand-50">
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
         {/* Header */}
         <View className="mb-6 flex-row items-center justify-between">
@@ -51,7 +52,7 @@ export default function InicioScreen() {
             <Text className="text-sm text-gray-500">Seus dados estão seguros</Text>
           </View>
           <View className="relative">
-            <View className="h-12 w-12 items-center justify-center rounded-full bg-teal-600">
+            <View className="h-12 w-12 items-center justify-center rounded-full bg-brand-600">
               <Text className="text-lg font-bold text-white">{initials}</Text>
             </View>
             {pendingRequests.length > 0 && (
@@ -75,7 +76,7 @@ export default function InicioScreen() {
             accessibilityRole="button"
           >
             <View className="h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-              <Bell color="#D97706" size={20} />
+              <Bell color={colors.alert.amber} size={20} />
             </View>
             <View className="flex-1">
               <Text className="text-sm font-bold text-amber-900">Pedido de acesso pendente</Text>
@@ -89,23 +90,23 @@ export default function InicioScreen() {
 
         {/* CTA principal */}
         <TouchableOpacity
-          className="mb-4 w-full items-center rounded-2xl bg-teal-600 px-6 py-5"
+          className="mb-4 w-full items-center rounded-2xl bg-brand-600 px-6 py-5"
           activeOpacity={0.8}
           accessibilityLabel="Gerar token de acesso"
           accessibilityRole="button"
         >
           <Shield color="#fff" size={28} />
           <Text className="mt-2 text-lg font-semibold text-white">Gerar Token de Acesso</Text>
-          <Text className="text-sm text-teal-100">Autorize um profissional de saúde</Text>
+          <Text className="text-sm text-brand-100">Autorize um profissional de saúde</Text>
         </TouchableOpacity>
 
         {/* Acessos ativos */}
         {activeTokens.map((token) => (
-          <View key={token.id} className="mb-4 rounded-2xl border border-teal-200 bg-white p-4">
+          <View key={token.id} className="mb-4 rounded-2xl border border-brand-200 bg-white p-4">
             <View className="mb-2 flex-row items-center justify-between">
-              <Text className="text-sm font-semibold text-teal-700">Acesso ativo</Text>
-              <View className="rounded-full bg-teal-100 px-3 py-1">
-                <Text className="text-xs font-medium text-teal-700">
+              <Text className="text-sm font-semibold text-brand-700">Acesso ativo</Text>
+              <View className="rounded-full bg-brand-100 px-3 py-1">
+                <Text className="text-xs font-medium text-brand-700">
                   {formatMinutesRemaining(minutesLeft(token.expiresAt))} restantes
                 </Text>
               </View>
@@ -133,7 +134,7 @@ export default function InicioScreen() {
 
         {activeTokens.length === 0 && pendingRequests.length === 0 && (
           <View className="mb-4 items-center rounded-2xl bg-white p-5">
-            <Shield color="#9CA3AF" size={32} />
+            <Shield color={colors.neutral.muted} size={32} />
             <Text className="mt-2 text-sm text-gray-400">Nenhum acesso ativo</Text>
           </View>
         )}
@@ -149,8 +150,8 @@ export default function InicioScreen() {
             className="mb-2 flex-row items-center rounded-xl bg-white p-4"
             accessibilityLabel={`${doc.title}, ${formatDate(doc.issuedAt)}`}
           >
-            <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-teal-50">
-              <FileText color="#0F766E" size={20} />
+            <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-brand-50">
+              <FileText color={colors.brand[700]} size={20} />
             </View>
             <View className="flex-1">
               <Text className="text-sm font-medium text-gray-900">{doc.title}</Text>

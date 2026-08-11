@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, Alert } from "r
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ShieldCheck, ShieldX, User, Clock, Building2, Stethoscope, AlertTriangle } from "lucide-react-native";
 import { useAppStore } from "../../src/context/AppStore";
+import { colors } from "@medchain/ui-tokens";
 
 export default function AutorizacaoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -59,25 +60,25 @@ export default function AutorizacaoScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header estilo WhatsApp */}
-      <View className="bg-teal-700 px-5 pt-4 pb-6">
+      <View className="bg-brand-700 px-5 pt-4 pb-6">
         <TouchableOpacity
           onPress={() => router.back()}
           className="mb-3 self-start"
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text className="text-teal-100 text-base">← Voltar</Text>
+          <Text className="text-brand-100 text-base">← Voltar</Text>
         </TouchableOpacity>
         <Text className="text-white text-xl font-bold">Pedido de acesso</Text>
-        <Text className="text-teal-100 text-sm mt-1">MedChain - Canal seguro</Text>
+        <Text className="text-brand-100 text-sm mt-1">MedChain - Canal seguro</Text>
       </View>
 
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
         {/* Card da mensagem */}
         <View className="mb-4 rounded-2xl bg-white overflow-hidden shadow-sm">
           {/* Cabeçalho da mensagem */}
-          <View className="bg-teal-50 px-5 py-4 border-b border-teal-100">
+          <View className="bg-brand-50 px-5 py-4 border-b border-brand-100">
             <View className="flex-row items-center gap-3">
-              <View className="h-12 w-12 items-center justify-center rounded-full bg-teal-600">
+              <View className="h-12 w-12 items-center justify-center rounded-full bg-brand-600">
                 <User color="#fff" size={22} />
               </View>
               <View className="flex-1">
@@ -92,7 +93,7 @@ export default function AutorizacaoScreen() {
           {/* Detalhes */}
           <View className="px-5 py-4 gap-4">
             <View className="flex-row items-start gap-3">
-              <Building2 color="#0F766E" size={18} />
+              <Building2 color={colors.brand[700]} size={18} />
               <View className="flex-1">
                 <Text className="text-xs text-gray-400 mb-0.5">Instituição</Text>
                 <Text className="text-sm font-medium text-gray-900">
@@ -102,7 +103,7 @@ export default function AutorizacaoScreen() {
             </View>
 
             <View className="flex-row items-start gap-3">
-              <Stethoscope color="#0F766E" size={18} />
+              <Stethoscope color={colors.brand[700]} size={18} />
               <View className="flex-1">
                 <Text className="text-xs text-gray-400 mb-0.5">Especialidade</Text>
                 <Text className="text-sm font-medium text-gray-900">
@@ -112,7 +113,7 @@ export default function AutorizacaoScreen() {
             </View>
 
             <View className="flex-row items-start gap-3">
-              <Clock color="#0F766E" size={18} />
+              <Clock color={colors.brand[700]} size={18} />
               <View className="flex-1">
                 <Text className="text-xs text-gray-400 mb-0.5">Duração do acesso</Text>
                 <Text className="text-sm font-medium text-gray-900">
@@ -122,7 +123,7 @@ export default function AutorizacaoScreen() {
             </View>
 
             <View className="flex-row items-start gap-3">
-              <ShieldCheck color="#0F766E" size={18} />
+              <ShieldCheck color={colors.brand[700]} size={18} />
               <View className="flex-1">
                 <Text className="text-xs text-gray-400 mb-0.5">Dados solicitados</Text>
                 <Text className="text-sm font-medium text-gray-900">{request.scope}</Text>
@@ -133,7 +134,7 @@ export default function AutorizacaoScreen() {
           {/* Motivo */}
           <View className="mx-5 mb-5 rounded-xl bg-amber-50 border border-amber-100 p-4">
             <View className="flex-row items-center gap-2 mb-1">
-              <AlertTriangle color="#D97706" size={14} />
+              <AlertTriangle color={colors.alert.amber} size={14} />
               <Text className="text-xs font-semibold text-amber-700">Motivo informado</Text>
             </View>
             <Text className="text-sm text-amber-900">{request.reason}</Text>
@@ -159,7 +160,7 @@ export default function AutorizacaoScreen() {
             <TouchableOpacity
               onPress={handleApprove}
               activeOpacity={0.8}
-              className="flex-row items-center justify-center gap-3 rounded-2xl bg-teal-600 py-5"
+              className="flex-row items-center justify-center gap-3 rounded-2xl bg-brand-600 py-5"
               accessibilityLabel="Autorizar acesso"
               accessibilityRole="button"
             >
@@ -174,7 +175,7 @@ export default function AutorizacaoScreen() {
               accessibilityLabel="Negar acesso"
               accessibilityRole="button"
             >
-              <ShieldX color="#DC2626" size={22} />
+              <ShieldX color={colors.alert.red} size={22} />
               <Text className="text-lg font-bold text-red-600">NÃO, negar</Text>
             </TouchableOpacity>
           </View>

@@ -32,12 +32,12 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-teal-50"
+      className="flex-1 bg-brand-50"
     >
       <View className="flex-1 items-center justify-center px-6">
         {/* Logo */}
         <View className="mb-8 items-center">
-          <View className="mb-3 h-16 w-16 items-center justify-center rounded-2xl bg-teal-600">
+          <View className="mb-3 h-16 w-16 items-center justify-center rounded-2xl bg-brand-600">
             <Text className="text-2xl font-bold text-white">M</Text>
           </View>
           <Text className="text-2xl font-bold text-gray-900">MedChain</Text>
@@ -82,7 +82,7 @@ export default function LoginScreen() {
           <TouchableOpacity
             onPress={handleSignIn}
             disabled={loading}
-            className="items-center rounded-xl bg-teal-600 py-3"
+            className="items-center rounded-xl bg-brand-600 py-3"
           >
             {loading ? (
               <ActivityIndicator color="white" />

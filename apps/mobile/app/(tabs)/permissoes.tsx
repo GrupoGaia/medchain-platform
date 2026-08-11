@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { ShieldCheck, ShieldOff, ShieldX, Clock } from "lucide-react-native";
 import { useAppStore } from "../../src/context/AppStore";
 import { formatMinutesRemaining } from "@medchain/domain";
+import { colors } from "@medchain/ui-tokens";
 
 export default function PermissoesScreen() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function PermissoesScreen() {
                 accessibilityRole="button"
               >
                 <View className="mb-3 flex-row items-center gap-2">
-                  <Clock color="#D97706" size={18} />
+                  <Clock color={colors.alert.amber} size={18} />
                   <Text className="text-sm font-semibold text-amber-700">Pedido pendente</Text>
                 </View>
                 <Text className="text-base font-bold text-gray-900">{req.professional.fullName}</Text>
@@ -63,8 +64,8 @@ export default function PermissoesScreen() {
             {activeTokens.map((token) => (
               <View key={token.id} className="mb-3 rounded-2xl bg-white p-5">
                 <View className="mb-3 flex-row items-center gap-2">
-                  <ShieldCheck color="#0F766E" size={20} />
-                  <Text className="text-sm font-semibold text-teal-700">
+                  <ShieldCheck color={colors.brand[700]} size={20} />
+                  <Text className="text-sm font-semibold text-brand-700">
                     Ativo · {formatMinutesRemaining(minutesLeft(token.expiresAt))} restantes
                   </Text>
                 </View>
@@ -73,8 +74,8 @@ export default function PermissoesScreen() {
                 <Text className="mb-1 text-sm text-gray-500">
                   {token.professional.institution?.name ?? ""}
                 </Text>
-                <View className="mb-4 self-start rounded-full bg-teal-50 px-3 py-1">
-                  <Text className="text-xs text-teal-700">{token.scope}</Text>
+                <View className="mb-4 self-start rounded-full bg-brand-50 px-3 py-1">
+                  <Text className="text-xs text-brand-700">{token.scope}</Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => revokeToken(token.id)}
@@ -82,7 +83,7 @@ export default function PermissoesScreen() {
                   accessibilityLabel={`Revogar acesso de ${token.professional.fullName}`}
                   accessibilityRole="button"
                 >
-                  <ShieldOff color="#DC2626" size={16} />
+                  <ShieldOff color={colors.alert.red} size={16} />
                   <Text className="text-sm font-semibold text-red-600">Revogar acesso</Text>
                 </TouchableOpacity>
               </View>
@@ -100,7 +101,7 @@ export default function PermissoesScreen() {
               .filter((t) => t.status !== "ACTIVE")
               .map((token) => (
                 <View key={token.id} className="mb-2 flex-row items-center gap-3 rounded-xl bg-white p-4">
-                  <ShieldX color="#9CA3AF" size={18} />
+                  <ShieldX color={colors.neutral.muted} size={18} />
                   <View className="flex-1">
                     <Text className="text-sm font-medium text-gray-500">
                       {token.professional.fullName}
@@ -116,7 +117,7 @@ export default function PermissoesScreen() {
 
         {activeTokens.length === 0 && pendingRequests.length === 0 && (
           <View className="items-center rounded-2xl bg-white py-12">
-            <ShieldCheck color="#9CA3AF" size={40} />
+            <ShieldCheck color={colors.neutral.muted} size={40} />
             <Text className="mt-3 text-base font-medium text-gray-500">Nenhum acesso ativo</Text>
             <Text className="text-sm text-gray-400">Seus dados estão protegidos</Text>
           </View>
