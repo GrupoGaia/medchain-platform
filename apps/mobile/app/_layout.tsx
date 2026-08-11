@@ -1,9 +1,21 @@
 import "../global.css";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
 import { AppStoreProvider } from "../src/context/AppStore";
 import { AuthProvider, useAuth } from "../src/context/AuthProvider";
+
+// Segura o splash até a Inter estar pronta, senão a primeira renderização sai
+// com a fonte do sistema e o texto salta quando a fonte carrega.
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function RootLayoutNav() {
   const { session, loading } = useAuth();
@@ -36,6 +48,22 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+
+  useEffect(() => {
+    // Se a fonte falhar, o app segue com a do sistema em vez de travar no splash.
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     <AuthProvider>
       <RootLayoutNav />

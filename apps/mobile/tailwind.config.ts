@@ -11,8 +11,15 @@ const config: Config = {
         alert: colors.alert,
         neutral: colors.neutral,
       },
+      // Em React Native o negrito não é sintetizado a partir de um arquivo só,
+      // então cada peso aponta para o arquivo correspondente da Inter. Os nomes
+      // batem com as classes de peso do Tailwind, que emite as duas regras para
+      // a mesma classe: font-bold recebe a família e o peso juntos.
       fontFamily: {
-        sans: ["Inter", "System"],
+        sans: ["Inter_400Regular"],
+        medium: ["Inter_500Medium"],
+        semibold: ["Inter_600SemiBold"],
+        bold: ["Inter_700Bold"],
       },
     },
   },
