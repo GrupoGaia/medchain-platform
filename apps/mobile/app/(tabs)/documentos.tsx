@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -9,6 +8,8 @@ import {
   Alert,
   Linking,
 } from "react-native";
+import { Card, EmptyState, Text } from "../../src/components";
+import emptyDocuments from "../../assets/img/empty-documents.png";
 import * as DocumentPicker from "expo-document-picker";
 import { FileText, Upload, Download } from "lucide-react-native";
 import { api, type MedicalDocumentResponse } from "../../src/services/api";
@@ -154,15 +155,13 @@ export default function DocumentosScreen() {
       </View>
 
       {documents.length === 0 ? (
-        <View className="mt-16 items-center">
-          <FileText size={48} color={colors.neutral.muted} />
-          <Text className="mt-3 text-base font-medium text-gray-400">
-            Nenhum documento
-          </Text>
-          <Text className="mt-1 text-center text-sm text-gray-400">
-            Toque em Adicionar para enviar exames ou laudos.
-          </Text>
-        </View>
+        <Card className="mt-6 py-8">
+          <EmptyState
+            image={emptyDocuments}
+            title="Nenhum documento"
+            description="Toque em Adicionar para enviar exames ou laudos."
+          />
+        </Card>
       ) : (
         <View className="gap-2">
           {documents.map((doc) => (

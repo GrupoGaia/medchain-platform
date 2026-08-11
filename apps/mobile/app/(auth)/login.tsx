@@ -1,13 +1,13 @@
 import { useState } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
 } from "react-native";
+import { Text } from "../../src/components";
 import { useAuth } from "../../src/context/AuthProvider";
 
 export default function LoginScreen() {

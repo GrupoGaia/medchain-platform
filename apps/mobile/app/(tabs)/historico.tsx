@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, SafeAreaView } from "react-native";
+import { View, ScrollView, SafeAreaView } from "react-native";
+import { Card, EmptyState, SectionLabel, Text } from "../../src/components";
 import { ShieldCheck, ShieldOff, ShieldX, Activity } from "lucide-react-native";
 import { useAppStore } from "../../src/context/AppStore";
 import type { AuditLogResponse } from "../../src/services/api";
@@ -76,22 +77,20 @@ export default function HistoricoScreen() {
         )}
 
         {!state.loading && state.logs.length === 0 && (
-          <View className="items-center rounded-2xl bg-white py-12">
-            <Activity color={colors.neutral.muted} size={40} />
-            <Text className="mt-3 text-base font-medium text-gray-500">
-              Sem eventos registrados
-            </Text>
-            <Text className="text-sm text-gray-400">
-              Os acessos ao seu prontuário aparecerão aqui
-            </Text>
-          </View>
+          <Card className="py-12">
+            <EmptyState
+              icon={<Activity color={colors.neutral.muted} size={40} />}
+              title="Sem eventos registrados"
+              description="Os acessos ao seu prontuário aparecerão aqui"
+            />
+          </Card>
         )}
 
         {state.logs.length > 0 && (
           <>
-            <Text className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            <SectionLabel>
               Acessos ao prontuário
-            </Text>
+            </SectionLabel>
             {state.logs.map((log) => (
               <LogRow key={log.id} log={log} />
             ))}

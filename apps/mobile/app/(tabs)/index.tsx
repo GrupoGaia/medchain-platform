@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, ScrollView, SafeAreaView } from "react-native";
+import { View, TouchableOpacity, ScrollView, SafeAreaView } from "react-native";
+import { Card, EmptyState, Text } from "../../src/components";
 import { useRouter } from "expo-router";
 import { Shield, FileText, Bell } from "lucide-react-native";
 import { useAppStore } from "../../src/context/AppStore";
@@ -133,10 +134,12 @@ export default function InicioScreen() {
         ))}
 
         {activeTokens.length === 0 && pendingRequests.length === 0 && (
-          <View className="mb-4 items-center rounded-2xl bg-white p-5">
-            <Shield color={colors.neutral.muted} size={32} />
-            <Text className="mt-2 text-sm text-gray-400">Nenhum acesso ativo</Text>
-          </View>
+          <Card className="mb-4 p-5">
+            <EmptyState
+              icon={<Shield color={colors.neutral.muted} size={32} />}
+              title="Nenhum acesso ativo"
+            />
+          </Card>
         )}
 
         {/* Exames recentes */}

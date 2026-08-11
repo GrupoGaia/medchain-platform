@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity } from "react-native";
+import { View, ScrollView, SafeAreaView, TouchableOpacity } from "react-native";
+import { SectionLabel, Text } from "../../src/components";
 import { User, AlertTriangle, Pill, ChevronRight, LogOut } from "lucide-react-native";
 import { api, type PatientProfileResponse } from "../../src/services/api";
 import { useAuth } from "../../src/context/AuthProvider";
@@ -50,9 +51,9 @@ export default function PerfilScreen() {
         </View>
 
         {/* Dados críticos */}
-        <Text className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+        <SectionLabel>
           Dados críticos
-        </Text>
+        </SectionLabel>
         <View className="mb-6 rounded-2xl bg-white">
           <View className="flex-row items-start gap-3 p-4">
             <AlertTriangle color={colors.alert.amber} size={18} />
@@ -92,9 +93,9 @@ export default function PerfilScreen() {
         </View>
 
         {/* Contatos de emergência */}
-        <Text className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+        <SectionLabel>
           Contatos de emergência
-        </Text>
+        </SectionLabel>
         <View className="mb-6 rounded-2xl bg-white">
           {contacts.length === 0 && (
             <View className="p-4">

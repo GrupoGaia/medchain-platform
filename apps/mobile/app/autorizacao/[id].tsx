@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, Alert } from "react-native";
+import { View, TouchableOpacity, ScrollView, SafeAreaView, Alert } from "react-native";
+import { Text } from "../../src/components";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ShieldCheck, ShieldX, User, Clock, Building2, Stethoscope, AlertTriangle } from "lucide-react-native";
 import { useAppStore } from "../../src/context/AppStore";

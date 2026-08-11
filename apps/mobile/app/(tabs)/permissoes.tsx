@@ -1,4 +1,6 @@
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity } from "react-native";
+import { View, ScrollView, SafeAreaView, TouchableOpacity } from "react-native";
+import { Card, EmptyState, SectionLabel, Text } from "../../src/components";
+import emptyAccess from "../../assets/img/empty-access.png";
 import { useRouter } from "expo-router";
 import { ShieldCheck, ShieldOff, ShieldX, Clock } from "lucide-react-native";
 import { useAppStore } from "../../src/context/AppStore";
@@ -24,9 +26,9 @@ export default function PermissoesScreen() {
         {/* Pedidos pendentes */}
         {pendingRequests.length > 0 && (
           <>
-            <Text className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-500">
+            <SectionLabel tone="warning">
               Aguardando resposta
-            </Text>
+            </SectionLabel>
             {pendingRequests.map((req) => (
               <TouchableOpacity
                 key={req.id}
@@ -58,9 +60,9 @@ export default function PermissoesScreen() {
         {/* Acessos ativos */}
         {activeTokens.length > 0 && (
           <>
-            <Text className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            <SectionLabel>
               Acessos ativos
-            </Text>
+            </SectionLabel>
             {activeTokens.map((token) => (
               <View key={token.id} className="mb-3 rounded-2xl bg-white p-5">
                 <View className="mb-3 flex-row items-center gap-2">
@@ -94,9 +96,9 @@ export default function PermissoesScreen() {
         {/* Acessos encerrados */}
         {state.tokens.filter((t) => t.status !== "ACTIVE").length > 0 && (
           <>
-            <Text className="mb-3 mt-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            <SectionLabel className="mt-2">
               Acessos encerrados
-            </Text>
+            </SectionLabel>
             {state.tokens
               .filter((t) => t.status !== "ACTIVE")
               .map((token) => (
@@ -116,11 +118,13 @@ export default function PermissoesScreen() {
         )}
 
         {activeTokens.length === 0 && pendingRequests.length === 0 && (
-          <View className="items-center rounded-2xl bg-white py-12">
-            <ShieldCheck color={colors.neutral.muted} size={40} />
-            <Text className="mt-3 text-base font-medium text-gray-500">Nenhum acesso ativo</Text>
-            <Text className="text-sm text-gray-400">Seus dados estão protegidos</Text>
-          </View>
+          <Card className="py-8">
+            <EmptyState
+              image={emptyAccess}
+              title="Nenhum acesso ativo"
+              description="Seus dados estão protegidos"
+            />
+          </Card>
         )}
       </ScrollView>
     </SafeAreaView>
