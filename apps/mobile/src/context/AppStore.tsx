@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
+import { AppState as RnAppState, type AppStateStatus } from "react-native";
 import { supabase } from "../services/supabase";
 import {
   api,
@@ -6,6 +7,7 @@ import {
   type AccessTokenResponse,
   type AuditLogResponse,
 } from "../services/api";
+import { startRequestPolling } from "./request-polling";
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
 
@@ -39,9 +41,14 @@ const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
+  const inFlightRef = useRef(false);
 
-  const fetchAll = useCallback(async () => {
-    setState((s) => ({ ...s, loading: true }));
+  const fetchAll = useCallback(async (options?: { silent?: boolean }) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    if (!options?.silent) {
+      setState((s) => ({ ...s, loading: true }));
+    }
     try {
       const [requests, tokens, logs] = await Promise.all([
         api.getAllRequests(),
@@ -51,24 +58,62 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       setState({ accessRequests: requests, tokens, logs, loading: false });
     } catch {
       setState((s) => ({ ...s, loading: false }));
+    } finally {
+      inFlightRef.current = false;
     }
   }, []);
 
   useEffect(() => {
+    let stopped = false;
+    let polling: { stop: () => void } | undefined;
+
+    const startPolling = () => {
+      if (polling) return;
+      polling = startRequestPolling({
+        refresh: () => fetchAll({ silent: true }),
+        isSessionActive: () => true,
+        intervalMs: 8000,
+        subscribeAppState: (listener) => {
+          const sub = RnAppState.addEventListener("change", (next: AppStateStatus) => {
+            listener(next);
+          });
+          return () => sub.remove();
+        },
+      });
+    };
+
+    const stopPolling = () => {
+      polling?.stop();
+      polling = undefined;
+    };
+
+    const applySession = (hasSession: boolean) => {
+      if (stopped) return;
+      if (hasSession) {
+        const alreadyPolling = Boolean(polling);
+        startPolling();
+        if (!alreadyPolling) void fetchAll();
+        return;
+      }
+      stopPolling();
+      setState({ ...initialState, loading: false });
+    };
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) fetchAll();
-      else setState({ ...initialState, loading: false });
+      applySession(Boolean(session));
     });
 
-    // Fetch imediato se já há sessão ativa
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) fetchAll();
-      else setState({ ...initialState, loading: false });
+      applySession(Boolean(session));
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      stopped = true;
+      stopPolling();
+      subscription.unsubscribe();
+    };
   }, [fetchAll]);
 
   const approveRequest = useCallback(
