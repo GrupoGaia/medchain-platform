@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
@@ -9,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from "react-native";
+import { Text } from "../../src/components";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../src/context/AuthProvider";
 
@@ -45,12 +45,12 @@ export default function CadastroScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-teal-50"
+      className="flex-1 bg-brand-50"
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="flex-1">
         <View className="flex-1 items-center justify-center px-6 py-10">
           <View className="mb-6 items-center">
-            <View className="mb-3 h-14 w-14 items-center justify-center rounded-2xl bg-teal-600">
+            <View className="mb-3 h-14 w-14 items-center justify-center rounded-2xl bg-brand-600">
               <Text className="text-xl font-bold text-white">M</Text>
             </View>
             <Text className="text-xl font-bold text-gray-900">Criar conta</Text>
@@ -101,7 +101,7 @@ export default function CadastroScreen() {
             <TouchableOpacity
               onPress={handleSignUp}
               disabled={loading}
-              className="mb-3 items-center rounded-xl bg-teal-600 py-3"
+              className="mb-3 items-center rounded-xl bg-brand-600 py-3"
             >
               {loading ? (
                 <ActivityIndicator color="white" />
@@ -112,7 +112,7 @@ export default function CadastroScreen() {
 
             <TouchableOpacity onPress={() => router.back()} className="items-center py-2">
               <Text className="text-sm text-gray-500">
-                Já tem conta? <Text className="font-medium text-teal-600">Entrar</Text>
+                Já tem conta? <Text className="font-medium text-brand-600">Entrar</Text>
               </Text>
             </TouchableOpacity>
           </View>

@@ -2,14 +2,12 @@
   "name": "@medchain/web",
   "version": "0.1.0",
   "private": true,
-  "prisma": {
-    "seed": "node_modules/.bin/tsx prisma/seed.ts"
-  },
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

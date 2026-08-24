@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity } from "react-native";
+import { View, ScrollView, SafeAreaView, TouchableOpacity } from "react-native";
+import { SectionLabel, Text } from "../../src/components";
 import { User, AlertTriangle, Pill, ChevronRight, LogOut } from "lucide-react-native";
 import { api, type PatientProfileResponse } from "../../src/services/api";
 import { useAuth } from "../../src/context/AuthProvider";
+import { colors } from "@medchain/ui-tokens";
 
 function getInitials(fullName: string): string {
   return fullName
@@ -39,7 +41,7 @@ export default function PerfilScreen() {
 
         {/* Avatar */}
         <View className="mb-6 items-center rounded-2xl bg-white py-8">
-          <View className="mb-3 h-20 w-20 items-center justify-center rounded-full bg-teal-600">
+          <View className="mb-3 h-20 w-20 items-center justify-center rounded-full bg-brand-600">
             <Text className="text-3xl font-bold text-white">{getInitials(profile.fullName)}</Text>
           </View>
           <Text className="text-xl font-bold text-gray-900">{profile.fullName}</Text>
@@ -49,12 +51,12 @@ export default function PerfilScreen() {
         </View>
 
         {/* Dados críticos */}
-        <Text className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+        <SectionLabel>
           Dados críticos
-        </Text>
+        </SectionLabel>
         <View className="mb-6 rounded-2xl bg-white">
           <View className="flex-row items-start gap-3 p-4">
-            <AlertTriangle color="#F59E0B" size={18} />
+            <AlertTriangle color={colors.alert.amber} size={18} />
             <View className="flex-1">
               <Text className="mb-1 text-xs text-gray-400">Alergias</Text>
               <Text className="text-sm font-medium text-gray-900">
@@ -66,7 +68,7 @@ export default function PerfilScreen() {
           </View>
           <View className="mx-4 h-px bg-gray-100" />
           <View className="flex-row items-start gap-3 p-4">
-            <Pill color="#6366F1" size={18} />
+            <Pill color={colors.alert.info} size={18} />
             <View className="flex-1">
               <Text className="mb-1 text-xs text-gray-400">Condições crônicas</Text>
               <Text className="text-sm font-medium text-gray-900">
@@ -78,7 +80,7 @@ export default function PerfilScreen() {
           </View>
           <View className="mx-4 h-px bg-gray-100" />
           <View className="flex-row items-start gap-3 p-4">
-            <Pill color="#0F766E" size={18} />
+            <Pill color={colors.brand[700]} size={18} />
             <View className="flex-1">
               <Text className="mb-1 text-xs text-gray-400">Uso contínuo</Text>
               <Text className="text-sm font-medium text-gray-900">
@@ -91,9 +93,9 @@ export default function PerfilScreen() {
         </View>
 
         {/* Contatos de emergência */}
-        <Text className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+        <SectionLabel>
           Contatos de emergência
-        </Text>
+        </SectionLabel>
         <View className="mb-6 rounded-2xl bg-white">
           {contacts.length === 0 && (
             <View className="p-4">
@@ -107,7 +109,7 @@ export default function PerfilScreen() {
                 accessibilityLabel={`${contato.name}, ${contato.relation}`}
               >
                 <View className="h-9 w-9 items-center justify-center rounded-full bg-gray-100">
-                  <User color="#6B7280" size={16} />
+                  <User color={colors.neutral.subtle} size={16} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm font-medium text-gray-900">{contato.name}</Text>
@@ -115,7 +117,7 @@ export default function PerfilScreen() {
                     {contato.relation} · {contato.phone}
                   </Text>
                 </View>
-                <ChevronRight color="#9CA3AF" size={16} />
+                <ChevronRight color={colors.neutral.muted} size={16} />
               </TouchableOpacity>
               {i < contacts.length - 1 && <View className="mx-4 h-px bg-gray-100" />}
             </View>
@@ -136,7 +138,7 @@ export default function PerfilScreen() {
           accessibilityLabel="Sair da conta"
           accessibilityRole="button"
         >
-          <LogOut color="#DC2626" size={16} />
+          <LogOut color={colors.alert.red} size={16} />
           <Text className="text-sm font-medium text-red-600">Sair</Text>
         </TouchableOpacity>
       </ScrollView>

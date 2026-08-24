@@ -1,7 +1,9 @@
-import { View, Text, ScrollView, SafeAreaView } from "react-native";
+import { View, ScrollView, SafeAreaView } from "react-native";
+import { Card, EmptyState, SectionLabel, Text } from "../../src/components";
 import { ShieldCheck, ShieldOff, ShieldX, Activity } from "lucide-react-native";
 import { useAppStore } from "../../src/context/AppStore";
 import type { AuditLogResponse } from "../../src/services/api";
+import { colors } from "@medchain/ui-tokens";
 
 function formatEventType(eventType: string): string {
   const map: Record<string, string> = {
@@ -17,20 +19,20 @@ function formatEventType(eventType: string): string {
 function EventIcon({ eventType }: { eventType: string }) {
   switch (eventType) {
     case "APPROVE":
-      return <ShieldCheck color="#0F766E" size={16} />;
+      return <ShieldCheck color={colors.brand[700]} size={16} />;
     case "DENY":
-      return <ShieldX color="#DC2626" size={16} />;
+      return <ShieldX color={colors.alert.red} size={16} />;
     case "REVOKE":
-      return <ShieldOff color="#9CA3AF" size={16} />;
+      return <ShieldOff color={colors.neutral.muted} size={16} />;
     default:
-      return <Activity color="#6366F1" size={16} />;
+      return <Activity color={colors.alert.info} size={16} />;
   }
 }
 
 function iconBg(eventType: string): string {
   switch (eventType) {
     case "APPROVE":
-      return "bg-teal-50";
+      return "bg-brand-50";
     case "DENY":
     case "REVOKE":
       return "bg-red-50";
@@ -75,22 +77,20 @@ export default function HistoricoScreen() {
         )}
 
         {!state.loading && state.logs.length === 0 && (
-          <View className="items-center rounded-2xl bg-white py-12">
-            <Activity color="#9CA3AF" size={40} />
-            <Text className="mt-3 text-base font-medium text-gray-500">
-              Sem eventos registrados
-            </Text>
-            <Text className="text-sm text-gray-400">
-              Os acessos ao seu prontuário aparecerão aqui
-            </Text>
-          </View>
+          <Card className="py-12">
+            <EmptyState
+              icon={<Activity color={colors.neutral.muted} size={40} />}
+              title="Sem eventos registrados"
+              description="Os acessos ao seu prontuário aparecerão aqui"
+            />
+          </Card>
         )}
 
         {state.logs.length > 0 && (
           <>
-            <Text className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            <SectionLabel>
               Acessos ao prontuário
-            </Text>
+            </SectionLabel>
             {state.logs.map((log) => (
               <LogRow key={log.id} log={log} />
             ))}

@@ -1,14 +1,15 @@
 import { Tabs } from "expo-router";
 import { Home, Clock, Shield, User, FileText } from "lucide-react-native";
+import { colors } from "@medchain/ui-tokens";
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#0F766E",
-        tabBarInactiveTintColor: "#9CA3AF",
+        tabBarActiveTintColor: colors.brand[700],
+        tabBarInactiveTintColor: colors.neutral.muted,
         tabBarStyle: {
-          borderTopColor: "#F3F4F6",
+          borderTopColor: colors.neutral.borderSubtle,
           paddingBottom: 4,
         },
         tabBarLabelStyle: {
