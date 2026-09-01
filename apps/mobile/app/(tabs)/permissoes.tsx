@@ -4,7 +4,7 @@ import emptyAccess from "../../assets/img/empty-access.png";
 import { useRouter } from "expo-router";
 import { ShieldCheck, ShieldOff, ShieldX, Clock } from "lucide-react-native";
 import { useAppStore } from "../../src/context/AppStore";
-import { formatMinutesRemaining } from "@medchain/domain";
+import { formatMinutesRemaining, SCOPE_LABEL } from "@medchain/domain";
 import { colors } from "@medchain/ui-tokens";
 
 export default function PermissoesScreen() {
@@ -77,7 +77,7 @@ export default function PermissoesScreen() {
                   {token.professional.institution?.name ?? ""}
                 </Text>
                 <View className="mb-4 self-start rounded-full bg-brand-50 px-3 py-1">
-                  <Text className="text-xs text-brand-700">{token.scope}</Text>
+                  <Text className="text-xs text-brand-700">{SCOPE_LABEL[token.scope]}</Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => revokeToken(token.id)}
