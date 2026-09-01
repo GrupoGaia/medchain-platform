@@ -226,6 +226,9 @@ importers:
 
   packages/api-contract:
     dependencies:
+      '@medchain/domain':
+        specifier: workspace:*
+        version: link:../domain
       zod:
         specifier: ^3.25.28
         version: 3.25.76
