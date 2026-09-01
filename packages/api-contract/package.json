@@ -12,6 +12,7 @@
     "lint": "echo 'no lint'"
   },
   "dependencies": {
+    "@medchain/domain": "workspace:*",
     "zod": "^3.25.28"
   },
   "devDependencies": {
