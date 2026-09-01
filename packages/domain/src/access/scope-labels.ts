@@ -22,7 +22,7 @@ export const SCOPE_SHARES: Record<AccessScope, readonly string[]> = {
 
 export const SCOPE_WITHHOLDS: Record<AccessScope, readonly string[]> = {
   FULL: [],
-  EMERGENCY: ["Exames, laudos e receitas"],
+  EMERGENCY: ["Exames, laudos, exames de imagem e receitas"],
   EXAMS: ["Receitas e prescrições"],
   PRESCRIPTIONS: ["Exames, laudos e exames de imagem"],
 };
