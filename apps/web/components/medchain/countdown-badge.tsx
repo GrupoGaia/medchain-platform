@@ -3,10 +3,10 @@ import { formatMinutesRemaining } from "@medchain/domain";
 
 interface CountdownBadgeProps {
   minutesRemaining: number;
-  totalMinutes?: number;
+  totalMinutes: number;
 }
 
-export function CountdownBadge({ minutesRemaining, totalMinutes = 60 }: CountdownBadgeProps) {
+export function CountdownBadge({ minutesRemaining, totalMinutes }: CountdownBadgeProps) {
   const safeMinutes = Math.max(0, minutesRemaining);
   const progress = Math.min(100, Math.round((safeMinutes / totalMinutes) * 100));
   const color =

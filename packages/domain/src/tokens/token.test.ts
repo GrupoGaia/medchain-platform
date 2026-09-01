@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildTokenExpiry, createTokenData } from "./create";
-import { formatMinutesRemaining, validateToken } from "./validate";
+import { formatMinutesRemaining, tokenTotalMinutes, validateToken } from "./validate";
 
 describe("token creation", () => {
   afterEach(() => {
@@ -95,5 +95,31 @@ describe("formatMinutesRemaining", () => {
 
   it("formats hours and minutes together", () => {
     expect(formatMinutesRemaining(135)).toBe("2h 15m");
+  });
+});
+
+describe("tokenTotalMinutes", () => {
+  it("derives the granted duration from creation and expiry", () => {
+    expect(
+      tokenTotalMinutes({
+        createdAt: new Date("2026-06-30T12:00:00.000Z"),
+        expiresAt: new Date("2026-06-30T12:15:00.000Z"),
+      })
+    ).toBe(15);
+  });
+
+  it("rounds durations that do not fall on a whole minute", () => {
+    expect(
+      tokenTotalMinutes({
+        createdAt: new Date("2026-06-30T12:00:00.000Z"),
+        expiresAt: new Date("2026-06-30T13:00:20.000Z"),
+      })
+    ).toBe(60);
+  });
+
+  it("never returns zero, so callers can divide by it", () => {
+    const instant = new Date("2026-06-30T12:00:00.000Z");
+
+    expect(tokenTotalMinutes({ createdAt: instant, expiresAt: instant })).toBe(1);
   });
 });
