@@ -36,30 +36,42 @@ import {
 async function revokeToken(formData: FormData) {
   "use server";
   const { doctorId, user: doctorUser } = await requireDoctor();
-  const tokenId = formData.get("tokenId") as string;
-  if (!tokenId) return;
+  const tokenIds = formData.getAll("tokenId") as string[];
+  if (tokenIds.length === 0) return;
 
-  const token = await prisma.accessToken.findUnique({
-    where: { id: tokenId },
-  });
+  // Pode existir mais de um token ACTIVE para o mesmo par medico-paciente
+  // (ver comentario na consulta de tokens abaixo). Encerrar acesso precisa
+  // revogar todos, senao a tela continua mostrando acesso ativo por causa
+  // do token que sobrou.
+  let patientId: string | null = null;
 
-  if (!token || token.status !== "ACTIVE" || token.professionalId !== doctorId) return;
+  for (const tokenId of tokenIds) {
+    const token = await prisma.accessToken.findUnique({
+      where: { id: tokenId },
+    });
 
-  await prisma.accessToken.update({
-    where: { id: tokenId },
-    data: { status: "REVOKED", revokedAt: new Date() },
-  });
+    if (!token || token.status !== "ACTIVE" || token.professionalId !== doctorId) continue;
 
-  await prisma.accessLog.create({
-    data: buildAccessRevocationLogData({
-      tokenId,
-      actorUserId: doctorUser.id,
-      patientId: token.patientId,
-      channel: "WEB_PORTAL",
-    }),
-  });
+    await prisma.accessToken.update({
+      where: { id: tokenId },
+      data: { status: "REVOKED", revokedAt: new Date() },
+    });
 
-  revalidatePath(`/medico/prontuario/${token.patientId}`);
+    await prisma.accessLog.create({
+      data: buildAccessRevocationLogData({
+        tokenId,
+        actorUserId: doctorUser.id,
+        patientId: token.patientId,
+        channel: "WEB_PORTAL",
+      }),
+    });
+
+    patientId = token.patientId;
+  }
+
+  if (patientId) {
+    revalidatePath(`/medico/prontuario/${patientId}`);
+  }
 }
 
 interface InfoItemProps {
@@ -241,7 +253,9 @@ export default async function ProntuarioPage({
             <AlertDescription className="flex flex-col gap-3 text-primary/90">
               O acesso expira em {formatMinutesRemaining(minutesRemaining)}.
               <form action={revokeToken} className="flex">
-                <input type="hidden" name="tokenId" value={activeToken.id} />
+                {validTokens.map((t) => (
+                  <input key={t.id} type="hidden" name="tokenId" value={t.id} />
+                ))}
                 <button
                   type="submit"
                   className={cn(

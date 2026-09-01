@@ -42,5 +42,7 @@ describe("scopeAllowsDocumentType", () => {
   it("rejects an unknown document type for every scope", () => {
     expect(scopeAllowsDocumentType("FULL", "SOMETHING_ELSE")).toBe(false);
     expect(scopeAllowsDocumentType("EXAMS", "SOMETHING_ELSE")).toBe(false);
+    expect(scopeAllowsDocumentType("EMERGENCY", "SOMETHING_ELSE")).toBe(false);
+    expect(scopeAllowsDocumentType("PRESCRIPTIONS", "SOMETHING_ELSE")).toBe(false);
   });
 });

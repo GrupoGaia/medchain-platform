@@ -266,9 +266,12 @@ describe("critical API access flow", () => {
       contactFor: [],
     };
 
-    const approved = await approveAccessRequest(request("/api/access-requests/request-1/approve"), {
-      params: Promise.resolve({ id: "request-1" }),
-    });
+    const approved = await approveAccessRequest(
+      request("/api/access-requests/request-1/approve", { method: "POST" }),
+      {
+        params: Promise.resolve({ id: "request-1" }),
+      }
+    );
     expect(approved.status).toBe(201);
     const approvedBody = await json(approved);
     expect(approvedBody).toMatchObject({
@@ -370,9 +373,12 @@ describe("critical API access flow", () => {
       contactFor: [],
     };
 
-    const approved = await approveAccessRequest(request(`/api/access-requests/${requestId}/approve`), {
-      params: Promise.resolve({ id: requestId }),
-    });
+    const approved = await approveAccessRequest(
+      request(`/api/access-requests/${requestId}/approve`, { method: "POST" }),
+      {
+        params: Promise.resolve({ id: requestId }),
+      }
+    );
     expect(approved.status).toBe(201);
 
     state.currentUser = {
@@ -435,5 +441,34 @@ describe("critical API access flow", () => {
       params: Promise.resolve({ id: "doc-2" }),
     });
     expect(prescriptionResponse.status).toBe(200);
+  });
+
+  it("lets the patient owner read their own documents of any type without a token, since scope only limits third parties", async () => {
+    const { GET: getDocumentUrl } = await import("./documents/[id]/route");
+
+    state.currentUser = {
+      id: PATIENT_USER_ID,
+      patientProfile: { id: PATIENT_ID },
+      professionalProfile: null,
+      contactFor: [],
+    };
+
+    expect(state.accessTokens.size).toBe(0);
+
+    const examResponse = await getDocumentUrl(request("/api/documents/doc-1"), {
+      params: Promise.resolve({ id: "doc-1" }),
+    });
+    expect(examResponse.status).toBe(200);
+    await expect(json(examResponse)).resolves.toEqual({
+      signedUrl: `https://storage.local/${PATIENT_ID}/doc-1.pdf?signed=1`,
+    });
+
+    const prescriptionResponse = await getDocumentUrl(request("/api/documents/doc-2"), {
+      params: Promise.resolve({ id: "doc-2" }),
+    });
+    expect(prescriptionResponse.status).toBe(200);
+    await expect(json(prescriptionResponse)).resolves.toEqual({
+      signedUrl: `https://storage.local/${PATIENT_ID}/doc-2.pdf?signed=1`,
+    });
   });
 });
