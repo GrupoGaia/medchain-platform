@@ -13,7 +13,7 @@ export function ExamResultsTable({ results }: { results: ExamResultResponse[] })
 
   return (
     <View className="mt-3 border-t border-gray-100 pt-3">
-      <View className="flex-row pb-2">
+      <View className="flex-row px-1 pb-2">
         <Text className="flex-1 text-xs font-medium text-gray-400">Analito</Text>
         <Text className="flex-1 text-xs font-medium text-gray-400">Valor</Text>
         <Text className="flex-1 text-xs font-medium text-gray-400">Referência</Text>

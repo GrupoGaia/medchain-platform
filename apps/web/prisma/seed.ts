@@ -326,7 +326,7 @@ async function main() {
     { title: "Perfil lipídico", type: "EXAM" },
     { title: "Ecocardiograma", type: "REPORT" },
     { title: "Receita Losartana + Metformina", type: "PRESCRIPTION" },
-    { title: "Glicemia em jejum (João)", type: "EXAM" },
+    { title: "Glicemia em jejum", type: "EXAM" },
     // Paciente 2: 4 docs
     { title: "Ultrassonografia abdominal", type: "IMAGING" },
     { title: "Espirometria", type: "REPORT" },
@@ -409,7 +409,7 @@ async function main() {
       { analyte: "HDL", value: 38, unit: "mg/dL", referenceMin: 40, referenceMax: 100 },
       { analyte: "Triglicerídeos", value: 189, unit: "mg/dL", referenceMin: 0, referenceMax: 150 },
     ],
-    "Glicemia em jejum (João)": [
+    "Glicemia em jejum": [
       { analyte: "Glicose", value: 114, unit: "mg/dL", referenceMin: 70, referenceMax: 99 },
     ],
   };
@@ -548,7 +548,7 @@ async function main() {
   console.log(`   Médicos      : ${doctors.length}`);
   console.log(`   Pacientes    : ${patients.length}`);
   console.log(`   Contatos Auth: 2`);
-  console.log(`   Documentos   : 21`);
+  console.log(`   Documentos   : ${await prisma.medicalDocument.count()}`);
   console.log(`   Resultados   : ${await prisma.examResult.count()}`);
   console.log(`   Solicitações : 3 (1 ativa, 1 pendente, 1 expirada)`);
   console.log("\nIDs para demo:");

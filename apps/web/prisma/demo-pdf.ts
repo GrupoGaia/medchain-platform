@@ -36,7 +36,7 @@ export function buildDemoPdf(input: DemoPdfInput): Buffer {
     escapePdfText(input.title),
     `Paciente: ${escapePdfText(input.patientName)}`,
     `Emitido em: ${formatDate(input.issuedAt)}`,
-    "Documento fictício gerado para fins de demonstração academica.",
+    "Documento fictício gerado para fins de demonstração acadêmica.",
   ];
 
   const contentLines = lines

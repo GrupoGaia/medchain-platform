@@ -265,5 +265,6 @@ model ExamResult {
 
   document MedicalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
+  @@index([documentId], map: "idx_exam_results_document")
   @@map("exam_results")
 }
