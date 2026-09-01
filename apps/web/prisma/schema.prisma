@@ -43,6 +43,13 @@ enum ChannelType {
   CHATBOT
 }
 
+enum AccessScope {
+  FULL
+  EMERGENCY
+  EXAMS
+  PRESCRIPTIONS
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // User
 // ────────────────────────────────────────────────────────────────────────────
@@ -182,7 +189,7 @@ model AccessRequest {
   professionalId  String              @map("professional_id")
   requestedById   String              @map("requested_by_id")
   status          AccessRequestStatus @default(PENDING)
-  scope           String
+  scope           AccessScope
   durationMinutes Int                 @map("duration_minutes") @default(60)
   reason          String?
   channelType     ChannelType         @map("channel_type") @default(WEB_PORTAL)
@@ -209,7 +216,7 @@ model AccessToken {
   patientId      String            @map("patient_id")
   professionalId String            @map("professional_id")
   status         AccessTokenStatus @default(ACTIVE)
-  scope          String
+  scope          AccessScope
   expiresAt      DateTime          @map("expires_at")
   revokedAt      DateTime?         @map("revoked_at")
   createdAt      DateTime          @default(now()) @map("created_at")
