@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireDoctor } from "@/lib/session";
-import { validateToken } from "@medchain/domain";
+import { SCOPE_LABEL, validateToken } from "@medchain/domain";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -107,7 +107,7 @@ export default async function DashboardPage() {
                           />
                           <div className="space-y-1">
                             <p className="font-semibold text-foreground">{token.patient.fullName}</p>
-                            <p className="text-sm text-muted-foreground">{token.scope}</p>
+                            <p className="text-sm text-muted-foreground">{SCOPE_LABEL[token.scope]}</p>
                           </div>
                         </div>
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -136,7 +136,7 @@ export default async function DashboardPage() {
                     <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-1">
                         <p className="font-semibold text-foreground">{req.patient.fullName}</p>
-                        <p className="text-sm text-muted-foreground">{req.scope}</p>
+                        <p className="text-sm text-muted-foreground">{SCOPE_LABEL[req.scope]}</p>
                         {req.reason && <p className="text-xs text-muted-foreground/80">{req.reason}</p>}
                       </div>
                       <Badge variant="secondary" className="w-fit gap-1 bg-amber-50 text-amber-700 hover:bg-amber-100">
