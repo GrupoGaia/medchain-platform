@@ -135,6 +135,7 @@ async function main() {
     );
   }
 
+  await prisma.examResult.deleteMany();
   await prisma.accessLog.deleteMany();
   await prisma.accessToken.deleteMany();
   await prisma.accessRequest.deleteMany();
@@ -317,14 +318,15 @@ async function main() {
     })
   );
 
-  // ── Documentos médicos (20) ───────────────────────────────────────────────
+  // ── Documentos médicos (21) ───────────────────────────────────────────────
   const docTemplates: { title: string; type: "EXAM" | "REPORT" | "PRESCRIPTION" | "IMAGING" }[] = [
-    // João Batista: 5 docs
+    // João Batista: 6 docs
     { title: "Hemograma completo", type: "EXAM" },
     { title: "Raio-X de tórax", type: "EXAM" },
     { title: "Perfil lipídico", type: "EXAM" },
     { title: "Ecocardiograma", type: "REPORT" },
     { title: "Receita Losartana + Metformina", type: "PRESCRIPTION" },
+    { title: "Glicemia em jejum (João)", type: "EXAM" },
     // Paciente 2: 4 docs
     { title: "Ultrassonografia abdominal", type: "IMAGING" },
     { title: "Espirometria", type: "REPORT" },
@@ -347,14 +349,14 @@ async function main() {
   ];
 
   const docsPerPatient = [
-    docTemplates.slice(0, 5),
-    docTemplates.slice(5, 9),
-    docTemplates.slice(9, 13),
-    docTemplates.slice(13, 17),
-    docTemplates.slice(17, 20),
+    docTemplates.slice(0, 6),
+    docTemplates.slice(6, 10),
+    docTemplates.slice(10, 14),
+    docTemplates.slice(14, 18),
+    docTemplates.slice(18, 21),
   ];
 
-  await Promise.all(
+  const createdDocuments = await Promise.all(
     patients.flatMap(({ profile }, pi) =>
       docsPerPatient[pi].map(async (doc) => {
         const issuedAt = faker.date.recent({ days: 180 });
@@ -386,6 +388,51 @@ async function main() {
           },
         });
       })
+    )
+  );
+
+  // ── Resultados de exame (apenas João Batista) ─────────────────────────────
+  // Valores escolhidos para bater com o perfil dele: hipertensao e pre-diabetes.
+  const examResultsByTitle: Record<
+    string,
+    { analyte: string; value: number; unit: string; referenceMin: number; referenceMax: number }[]
+  > = {
+    "Hemograma completo": [
+      { analyte: "Hemoglobina", value: 14.2, unit: "g/dL", referenceMin: 13, referenceMax: 17 },
+      { analyte: "Hematócrito", value: 42, unit: "%", referenceMin: 39, referenceMax: 50 },
+      { analyte: "Leucócitos", value: 7200, unit: "/mm3", referenceMin: 4000, referenceMax: 11000 },
+      { analyte: "Plaquetas", value: 245000, unit: "/mm3", referenceMin: 150000, referenceMax: 450000 },
+    ],
+    "Perfil lipídico": [
+      { analyte: "Colesterol total", value: 214, unit: "mg/dL", referenceMin: 0, referenceMax: 190 },
+      { analyte: "LDL", value: 142, unit: "mg/dL", referenceMin: 0, referenceMax: 130 },
+      { analyte: "HDL", value: 38, unit: "mg/dL", referenceMin: 40, referenceMax: 100 },
+      { analyte: "Triglicerídeos", value: 189, unit: "mg/dL", referenceMin: 0, referenceMax: 150 },
+    ],
+    "Glicemia em jejum (João)": [
+      { analyte: "Glicose", value: 114, unit: "mg/dL", referenceMin: 70, referenceMax: 99 },
+    ],
+  };
+
+  const joaoProfileId = patients[0].profile.id;
+  const joaoExamDocuments = createdDocuments.filter(
+    (doc) => doc.patientId === joaoProfileId && examResultsByTitle[doc.title] !== undefined
+  );
+
+  await Promise.all(
+    joaoExamDocuments.flatMap((doc) =>
+      examResultsByTitle[doc.title].map((result) =>
+        prisma.examResult.create({
+          data: {
+            documentId: doc.id,
+            analyte: result.analyte,
+            value: result.value,
+            unit: result.unit,
+            referenceMin: result.referenceMin,
+            referenceMax: result.referenceMax,
+          },
+        })
+      )
     )
   );
 
@@ -501,7 +548,8 @@ async function main() {
   console.log(`   Médicos      : ${doctors.length}`);
   console.log(`   Pacientes    : ${patients.length}`);
   console.log(`   Contatos Auth: 2`);
-  console.log(`   Documentos   : 20`);
+  console.log(`   Documentos   : 21`);
+  console.log(`   Resultados   : ${await prisma.examResult.count()}`);
   console.log(`   Solicitações : 3 (1 ativa, 1 pendente, 1 expirada)`);
   console.log("\nIDs para demo:");
   console.log(`   João Batista (patientProfileId) : ${joao.profile.id}`);
