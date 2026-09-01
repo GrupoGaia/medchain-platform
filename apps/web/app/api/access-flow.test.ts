@@ -151,6 +151,17 @@ vi.mock("@/lib/prisma", () => {
           }) ?? null
         );
       }),
+      findMany: vi.fn(async ({ where }: { where: { patientId: string; professionalId: string; status: string; expiresAt?: { gt: Date } } }) => {
+        return Array.from(state.accessTokens.values()).filter((token) => {
+          const expiresAfter = where.expiresAt ? token.expiresAt > where.expiresAt.gt : true;
+          return (
+            token.patientId === where.patientId &&
+            token.professionalId === where.professionalId &&
+            token.status === where.status &&
+            expiresAfter
+          );
+        });
+      }),
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
         state.accessTokens.get(where.id) ?? null
       ),
@@ -380,5 +391,49 @@ describe("critical API access flow", () => {
       params: Promise.resolve({ id: "doc-2" }),
     });
     expect(blocked.status).toBe(403);
+  });
+
+  it("allows access when the doctor has more than one active token with complementary scopes", async () => {
+    const { GET: getDocumentUrl } = await import("./documents/[id]/route");
+
+    const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
+
+    state.accessTokens.set("token-exams", {
+      id: "token-exams",
+      requestId: "request-exams",
+      patientId: PATIENT_ID,
+      professionalId: DOCTOR_ID,
+      scope: "EXAMS",
+      expiresAt: oneHourFromNow,
+      status: "ACTIVE",
+      revokedAt: null,
+    });
+    state.accessTokens.set("token-prescriptions", {
+      id: "token-prescriptions",
+      requestId: "request-prescriptions",
+      patientId: PATIENT_ID,
+      professionalId: DOCTOR_ID,
+      scope: "PRESCRIPTIONS",
+      expiresAt: oneHourFromNow,
+      status: "ACTIVE",
+      revokedAt: null,
+    });
+
+    state.currentUser = {
+      id: DOCTOR_USER_ID,
+      professionalProfile: { id: DOCTOR_ID },
+      patientProfile: null,
+      contactFor: [],
+    };
+
+    const examResponse = await getDocumentUrl(request("/api/documents/doc-1"), {
+      params: Promise.resolve({ id: "doc-1" }),
+    });
+    expect(examResponse.status).toBe(200);
+
+    const prescriptionResponse = await getDocumentUrl(request("/api/documents/doc-2"), {
+      params: Promise.resolve({ id: "doc-2" }),
+    });
+    expect(prescriptionResponse.status).toBe(200);
   });
 });

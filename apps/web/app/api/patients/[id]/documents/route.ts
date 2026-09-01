@@ -14,25 +14,38 @@ export async function GET(
   const { id: patientId } = await params;
   const professionalId = user.professionalProfile.id;
 
-  const token = await prisma.accessToken.findFirst({
+  const tokens = await prisma.accessToken.findMany({
     where: { patientId, professionalId, status: "ACTIVE" },
   });
 
-  if (!token) {
+  if (tokens.length === 0) {
     return NextResponse.json({ error: "Sem token ativo para este profissional" }, { status: 401 });
   }
 
-  const validation = validateToken({
-    status: token.status,
-    expiresAt: token.expiresAt,
-    revokedAt: token.revokedAt,
-  });
+  // Pode existir mais de um token ativo para o mesmo par medico-paciente,
+  // porque a aprovacao cria token novo sem revogar os anteriores. Validamos
+  // cada um, expirando os vencidos, e usamos a uniao dos que ainda valem.
+  const validTokens: Array<{ scope: (typeof tokens)[number]["scope"]; minutesRemaining: number }> = [];
 
-  if (!validation.valid) {
-    await prisma.accessToken.update({
-      where: { id: token.id },
-      data: { status: "EXPIRED" },
+  for (const token of tokens) {
+    const validation = validateToken({
+      status: token.status,
+      expiresAt: token.expiresAt,
+      revokedAt: token.revokedAt,
     });
+
+    if (!validation.valid) {
+      await prisma.accessToken.update({
+        where: { id: token.id },
+        data: { status: "EXPIRED" },
+      });
+      continue;
+    }
+
+    validTokens.push({ scope: token.scope, minutesRemaining: validation.minutesRemaining });
+  }
+
+  if (validTokens.length === 0) {
     return NextResponse.json({ error: "Token expirado" }, { status: 401 });
   }
 
@@ -42,11 +55,13 @@ export async function GET(
   });
 
   const allowedDocuments = documents.filter((doc) =>
-    scopeAllowsDocumentType(token.scope, doc.type)
+    validTokens.some((token) => scopeAllowsDocumentType(token.scope, doc.type))
   );
+
+  const minutesRemaining = Math.max(...validTokens.map((token) => token.minutesRemaining));
 
   return NextResponse.json({
     documents: allowedDocuments,
-    minutesRemaining: validation.minutesRemaining,
+    minutesRemaining,
   });
 }
