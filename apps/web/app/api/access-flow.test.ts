@@ -35,6 +35,7 @@ type MedicalDocument = {
   id: string;
   patientId: string;
   storageKey: string;
+  type: string;
 };
 
 type AccessLog = {
@@ -197,6 +198,13 @@ describe("critical API access flow", () => {
       id: "doc-1",
       patientId: PATIENT_ID,
       storageKey: `${PATIENT_ID}/doc-1.pdf`,
+      type: "EXAM",
+    });
+    state.documents.set("doc-2", {
+      id: "doc-2",
+      patientId: PATIENT_ID,
+      storageKey: `${PATIENT_ID}/doc-2.pdf`,
+      type: "PRESCRIPTION",
     });
   });
 
@@ -224,7 +232,7 @@ describe("critical API access flow", () => {
         method: "POST",
         body: JSON.stringify({
           patientId: PATIENT_ID,
-          scope: "Prontuário completo",
+          scope: "FULL",
           durationMinutes: 30,
           reason: "Atendimento de urgência",
         }),
@@ -316,5 +324,61 @@ describe("critical API access flow", () => {
         }),
       ])
     );
+  });
+
+  it("blocks a document whose type is outside the token scope", async () => {
+    const { POST: createAccessRequest } = await import("./access-requests/route");
+    const { POST: approveAccessRequest } = await import("./access-requests/[id]/approve/route");
+    const { GET: getDocumentUrl } = await import("./documents/[id]/route");
+
+    state.currentUser = {
+      id: DOCTOR_USER_ID,
+      professionalProfile: { id: DOCTOR_ID },
+      patientProfile: null,
+      contactFor: [],
+    };
+
+    const created = await createAccessRequest(
+      request("/api/access-requests", {
+        method: "POST",
+        body: JSON.stringify({
+          patientId: PATIENT_ID,
+          scope: "EXAMS",
+          durationMinutes: 60,
+        }),
+      })
+    );
+    expect(created.status).toBe(201);
+    const createdBody = await json(created);
+    const requestId = createdBody.id as string;
+
+    state.currentUser = {
+      id: PATIENT_USER_ID,
+      patientProfile: { id: PATIENT_ID },
+      professionalProfile: null,
+      contactFor: [],
+    };
+
+    const approved = await approveAccessRequest(request(`/api/access-requests/${requestId}/approve`), {
+      params: Promise.resolve({ id: requestId }),
+    });
+    expect(approved.status).toBe(201);
+
+    state.currentUser = {
+      id: DOCTOR_USER_ID,
+      professionalProfile: { id: DOCTOR_ID },
+      patientProfile: null,
+      contactFor: [],
+    };
+
+    const allowed = await getDocumentUrl(request("/api/documents/doc-1"), {
+      params: Promise.resolve({ id: "doc-1" }),
+    });
+    expect(allowed.status).toBe(200);
+
+    const blocked = await getDocumentUrl(request("/api/documents/doc-2"), {
+      params: Promise.resolve({ id: "doc-2" }),
+    });
+    expect(blocked.status).toBe(403);
   });
 });

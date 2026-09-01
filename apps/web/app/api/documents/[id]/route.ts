@@ -4,6 +4,7 @@ import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
 import { getManagedPatientIds } from "@/lib/patient-access";
 import { createSignedUrl } from "@/lib/storage";
 import { getRequestId, reportApiError } from "@/lib/api-error";
+import { scopeAllowsDocumentType } from "@medchain/domain";
 
 export async function GET(
   request: NextRequest,
@@ -31,7 +32,9 @@ export async function GET(
         expiresAt: { gt: new Date() },
       },
     });
-    hasProfessionalAccess = !!token;
+    // Token ativo nao basta: o escopo dele precisa cobrir o tipo do documento.
+    // Sem esta checagem, o filtro de tela seria contornavel chamando a API direto.
+    hasProfessionalAccess = !!token && scopeAllowsDocumentType(token.scope, doc.type);
   }
 
   if (!isOwner && !hasProfessionalAccess) return forbidden();

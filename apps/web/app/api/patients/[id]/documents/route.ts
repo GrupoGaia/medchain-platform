@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
-import { validateToken } from "@medchain/domain";
+import { scopeAllowsDocumentType, validateToken } from "@medchain/domain";
 
 export async function GET(
   request: NextRequest,
@@ -41,5 +41,12 @@ export async function GET(
     orderBy: { issuedAt: "desc" },
   });
 
-  return NextResponse.json({ documents, minutesRemaining: validation.minutesRemaining });
+  const allowedDocuments = documents.filter((doc) =>
+    scopeAllowsDocumentType(token.scope, doc.type)
+  );
+
+  return NextResponse.json({
+    documents: allowedDocuments,
+    minutesRemaining: validation.minutesRemaining,
+  });
 }
