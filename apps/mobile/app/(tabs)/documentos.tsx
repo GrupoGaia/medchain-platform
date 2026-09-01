@@ -8,7 +8,7 @@ import {
   Alert,
   Linking,
 } from "react-native";
-import { Card, EmptyState, Text } from "../../src/components";
+import { Card, EmptyState, ExamResultsTable, Text } from "../../src/components";
 import emptyDocuments from "../../assets/img/empty-documents.png";
 import * as DocumentPicker from "expo-document-picker";
 import { FileText, Upload, Download } from "lucide-react-native";
@@ -165,31 +165,30 @@ export default function DocumentosScreen() {
       ) : (
         <View className="gap-2">
           {documents.map((doc) => (
-            <View
-              key={doc.id}
-              className="flex-row items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm"
-            >
-              <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-brand-50">
-                <FileText size={18} color={colors.brand[700]} />
-              </View>
-              <View className="flex-1">
-                <Text
-                  className="text-sm font-medium text-gray-900"
-                  numberOfLines={1}
+            <View key={doc.id} className="rounded-xl bg-white px-4 py-3 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-brand-50">
+                  <FileText size={18} color={colors.brand[700]} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-medium text-gray-900" numberOfLines={1}>
+                    {doc.title}
+                  </Text>
+                  <Text className="text-xs text-gray-400">
+                    {DOC_TYPE_LABEL[doc.type] ?? doc.type} ·{" "}
+                    {new Date(doc.issuedAt).toLocaleDateString("pt-BR")}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => handleDownload(doc.id)}
+                  className="ml-2 rounded-lg border border-gray-200 p-2"
                 >
-                  {doc.title}
-                </Text>
-                <Text className="text-xs text-gray-400">
-                  {DOC_TYPE_LABEL[doc.type] ?? doc.type} ·{" "}
-                  {new Date(doc.issuedAt).toLocaleDateString("pt-BR")}
-                </Text>
+                  <Download size={14} color={colors.neutral.subtle} />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                onPress={() => handleDownload(doc.id)}
-                className="ml-2 rounded-lg border border-gray-200 p-2"
-              >
-                <Download size={14} color={colors.neutral.subtle} />
-              </TouchableOpacity>
+              {doc.results && doc.results.length > 0 && (
+                <ExamResultsTable results={doc.results} />
+              )}
             </View>
           ))}
         </View>

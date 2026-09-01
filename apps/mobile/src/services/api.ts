@@ -120,12 +120,22 @@ export interface EmergencyContactResponse {
   phone: string;
 }
 
+export interface ExamResultResponse {
+  id: string;
+  analyte: string;
+  value: number;
+  unit: string;
+  referenceMin: number;
+  referenceMax: number;
+}
+
 export interface MedicalDocumentResponse {
   id: string;
   title: string;
   type: string;
   mimeType: string;
   issuedAt: string;
+  results?: ExamResultResponse[];
 }
 
 export interface AccessRequestResponse {
