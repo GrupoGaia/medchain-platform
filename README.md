@@ -128,13 +128,12 @@ A senha dos usuários de exemplo é `medchain123`.
 apps/
   mobile/        Expo + React Native + NativeWind (paciente e familiar)
   web/           Next.js 15 App Router + Tailwind + shadcn/ui (médico)
+    prisma/      Schema, migrations e seed do banco
 packages/
   api-contract/  Schemas Zod compartilhados entre mobile e web
   domain/        Regras de negócio: tokens, autorização e auditoria
   ui-tokens/     Paleta de cores, tipografia e espaçamentos
   config/        Configurações base de ESLint, TypeScript e Prettier
-prisma/
-  schema.prisma  Modelo de dados de referência
 ```
 
 ## Comandos úteis
