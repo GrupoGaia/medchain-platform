@@ -102,6 +102,7 @@ export default async function ProntuarioPage({
     prisma.medicalDocument.findMany({
       where: { patientId },
       orderBy: { issuedAt: "desc" },
+      include: { results: { orderBy: { analyte: "asc" } } },
     }),
     prisma.accessLog.findMany({
       where: { patientId },
@@ -318,6 +319,7 @@ export default async function ProntuarioPage({
                               type={doc.type}
                               mimeType={doc.mimeType}
                               issuedAt={doc.issuedAt}
+                              results={doc.results}
                             />
                           ))}
                         </div>
