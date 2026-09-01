@@ -6,7 +6,6 @@ import { requireDoctor } from "@/lib/session";
 import {
   formatMinutesRemaining,
   scopeAllowsDocumentType,
-  SCOPE_WITHHOLDS,
   validateToken,
 } from "@medchain/domain";
 import { buttonVariants } from "@/components/ui/button";
@@ -172,18 +171,17 @@ export default async function ProntuarioPage({
     validTokens.some((t) => scopeAllowsDocumentType(t.scope, doc.type))
   );
 
-  // Com um unico token, usamos o texto ja pronto de SCOPE_WITHHOLDS. Com mais
-  // de um, o bloqueado passa a ser a uniao dos escopos, e as frases prontas
-  // de cada escopo isolado nao compoem entre si, entao derivamos o bloqueado
-  // a partir dos tipos de documento que nenhum token valido libera.
-  const withheld =
-    validTokens.length === 0
-      ? []
-      : validTokens.length === 1
-        ? SCOPE_WITHHOLDS[validTokens[0].scope]
-        : Object.keys(typeLabel)
-            .filter((type) => !validTokens.some((t) => scopeAllowsDocumentType(t.scope, type)))
-            .map((type) => typeLabel[type]);
+  // Retido precisa refletir documento real que existe e foi filtrado, nao o
+  // que o escopo abstratamente esconderia. Um paciente sem documento nenhum
+  // nao pode acionar o cartao bloqueado so porque o escopo e restrito.
+  const hiddenDocumentTypes = Array.from(
+    new Set(
+      documents
+        .filter((doc) => !validTokens.some((t) => scopeAllowsDocumentType(t.scope, doc.type)))
+        .map((doc) => doc.type)
+    )
+  );
+  const withheld = hiddenDocumentTypes.map((type) => typeLabel[type] ?? type);
 
   const groupedDocuments = visibleDocuments.reduce<Record<string, typeof documents>>(
     (acc, doc) => {
