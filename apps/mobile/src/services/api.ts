@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import type { AccessScope } from "@medchain/domain";
 import { supabase } from "./supabase";
 import { buildApiUrl } from "./api-url";
 
@@ -120,18 +121,28 @@ export interface EmergencyContactResponse {
   phone: string;
 }
 
+export interface ExamResultResponse {
+  id: string;
+  analyte: string;
+  value: number;
+  unit: string;
+  referenceMin: number;
+  referenceMax: number;
+}
+
 export interface MedicalDocumentResponse {
   id: string;
   title: string;
   type: string;
   mimeType: string;
   issuedAt: string;
+  results?: ExamResultResponse[];
 }
 
 export interface AccessRequestResponse {
   id: string;
   status: string;
-  scope: string;
+  scope: AccessScope;
   durationMinutes: number;
   reason: string | null;
   createdAt: string;
@@ -147,7 +158,7 @@ export interface AccessRequestResponse {
 export interface AccessTokenResponse {
   id: string;
   status: string;
-  scope: string;
+  scope: AccessScope;
   expiresAt: string;
   revokedAt: string | null;
   professional: {

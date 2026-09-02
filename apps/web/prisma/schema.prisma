@@ -43,6 +43,13 @@ enum ChannelType {
   CHATBOT
 }
 
+enum AccessScope {
+  FULL
+  EMERGENCY
+  EXAMS
+  PRESCRIPTIONS
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // User
 // ────────────────────────────────────────────────────────────────────────────
@@ -107,6 +114,8 @@ model EmergencyContact {
   patient PatientProfile @relation(fields: [patientId], references: [id])
   user    User?          @relation("ContactForPatient", fields: [userId], references: [id])
 
+  @@index([userId], map: "idx_emergency_contacts_user")
+  @@index([patientId], map: "idx_emergency_contacts_patient")
   @@map("emergency_contacts")
 }
 
@@ -164,7 +173,9 @@ model MedicalDocument {
   createdAt  DateTime @default(now()) @map("created_at")
 
   patient PatientProfile @relation(fields: [patientId], references: [id])
+  results ExamResult[]
 
+  @@index([patientId], map: "idx_medical_documents_patient")
   @@map("medical_documents")
 }
 
@@ -178,7 +189,7 @@ model AccessRequest {
   professionalId  String              @map("professional_id")
   requestedById   String              @map("requested_by_id")
   status          AccessRequestStatus @default(PENDING)
-  scope           String
+  scope           AccessScope
   durationMinutes Int                 @map("duration_minutes") @default(60)
   reason          String?
   channelType     ChannelType         @map("channel_type") @default(WEB_PORTAL)
@@ -190,6 +201,8 @@ model AccessRequest {
   requestedBy  User                      @relation("ProfessionalRequests", fields: [requestedById], references: [id])
   token        AccessToken?
 
+  @@index([patientId, status], map: "idx_access_requests_patient_status")
+  @@index([professionalId, status], map: "idx_access_requests_professional_status")
   @@map("access_requests")
 }
 
@@ -203,7 +216,7 @@ model AccessToken {
   patientId      String            @map("patient_id")
   professionalId String            @map("professional_id")
   status         AccessTokenStatus @default(ACTIVE)
-  scope          String
+  scope          AccessScope
   expiresAt      DateTime          @map("expires_at")
   revokedAt      DateTime?         @map("revoked_at")
   createdAt      DateTime          @default(now()) @map("created_at")
@@ -213,6 +226,8 @@ model AccessToken {
   professional HealthProfessionalProfile @relation("ProfessionalTokens", fields: [professionalId], references: [id])
   logs         AccessLog[]
 
+  @@index([patientId, professionalId, status], map: "idx_access_tokens_patient_prof_status")
+  @@index([expiresAt], map: "idx_access_tokens_expires_at")
   @@map("access_tokens")
 }
 
@@ -237,5 +252,26 @@ model AccessLog {
   actor   User           @relation(fields: [actorUserId], references: [id])
   patient PatientProfile @relation("PatientLogs", fields: [patientId], references: [id])
 
+  @@index([patientId], map: "idx_access_logs_patient")
   @@map("access_logs")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// ExamResult
+// ────────────────────────────────────────────────────────────────────────────
+
+model ExamResult {
+  id           String   @id @default(uuid())
+  documentId   String   @map("document_id")
+  analyte      String
+  value        Float
+  unit         String
+  referenceMin Float    @map("reference_min")
+  referenceMax Float    @map("reference_max")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  document MedicalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId], map: "idx_exam_results_document")
+  @@map("exam_results")
 }

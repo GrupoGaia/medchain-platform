@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
   const documents = await prisma.medicalDocument.findMany({
     where: { patientId: { in: patientIds } },
     orderBy: { issuedAt: "desc" },
+    include: { results: { orderBy: { analyte: "asc" } } },
   });
 
   return NextResponse.json(documents);

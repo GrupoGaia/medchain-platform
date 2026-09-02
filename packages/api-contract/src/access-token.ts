@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ACCESS_SCOPES } from "@medchain/domain";
 
 export const AccessTokenStatus = z.enum(["ACTIVE", "EXPIRED", "REVOKED"]);
 export type AccessTokenStatus = z.infer<typeof AccessTokenStatus>;
@@ -14,7 +15,7 @@ export const AccessTokenResponseSchema = z.object({
   status: AccessTokenStatus,
   patientId: z.string().uuid(),
   professionalId: z.string().uuid(),
-  scope: z.string(),
+  scope: z.enum(ACCESS_SCOPES),
   expiresAt: z.string().datetime(),
   revokedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),

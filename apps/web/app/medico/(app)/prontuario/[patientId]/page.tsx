@@ -3,7 +3,11 @@ import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireDoctor } from "@/lib/session";
-import { validateToken, formatMinutesRemaining } from "@medchain/domain";
+import {
+  formatMinutesRemaining,
+  scopeAllowsDocumentType,
+  validateToken,
+} from "@medchain/domain";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PageHeader } from "@/components/medchain/page-header";
 import { EmptyState } from "@/components/medchain/empty-state";
 import { DocumentCard } from "@/components/medchain/document-card";
+import { BlockedDocumentsCard } from "@/components/medchain/blocked-documents-card";
 import { buildAccessRevocationLogData } from "@/lib/audit-log";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -31,30 +36,42 @@ import {
 async function revokeToken(formData: FormData) {
   "use server";
   const { doctorId, user: doctorUser } = await requireDoctor();
-  const tokenId = formData.get("tokenId") as string;
-  if (!tokenId) return;
+  const tokenIds = formData.getAll("tokenId") as string[];
+  if (tokenIds.length === 0) return;
 
-  const token = await prisma.accessToken.findUnique({
-    where: { id: tokenId },
-  });
+  // Pode existir mais de um token ACTIVE para o mesmo par medico-paciente
+  // (ver comentario na consulta de tokens abaixo). Encerrar acesso precisa
+  // revogar todos, senao a tela continua mostrando acesso ativo por causa
+  // do token que sobrou.
+  let patientId: string | null = null;
 
-  if (!token || token.status !== "ACTIVE" || token.professionalId !== doctorId) return;
+  for (const tokenId of tokenIds) {
+    const token = await prisma.accessToken.findUnique({
+      where: { id: tokenId },
+    });
 
-  await prisma.accessToken.update({
-    where: { id: tokenId },
-    data: { status: "REVOKED", revokedAt: new Date() },
-  });
+    if (!token || token.status !== "ACTIVE" || token.professionalId !== doctorId) continue;
 
-  await prisma.accessLog.create({
-    data: buildAccessRevocationLogData({
-      tokenId,
-      actorUserId: doctorUser.id,
-      patientId: token.patientId,
-      channel: "WEB_PORTAL",
-    }),
-  });
+    await prisma.accessToken.update({
+      where: { id: tokenId },
+      data: { status: "REVOKED", revokedAt: new Date() },
+    });
 
-  revalidatePath(`/medico/prontuario/${token.patientId}`);
+    await prisma.accessLog.create({
+      data: buildAccessRevocationLogData({
+        tokenId,
+        actorUserId: doctorUser.id,
+        patientId: token.patientId,
+        channel: "WEB_PORTAL",
+      }),
+    });
+
+    patientId = token.patientId;
+  }
+
+  if (patientId) {
+    revalidatePath(`/medico/prontuario/${patientId}`);
+  }
 }
 
 interface InfoItemProps {
@@ -91,17 +108,18 @@ export default async function ProntuarioPage({
   const { patientId } = await params;
   const { doctorId, user: doctorUser } = await requireDoctor();
 
-  const [patient, token, documents, logs] = await Promise.all([
+  const [patient, tokens, documents, logs] = await Promise.all([
     prisma.patientProfile.findUnique({
       where: { id: patientId },
       include: { emergencyContacts: true },
     }),
-    prisma.accessToken.findFirst({
+    prisma.accessToken.findMany({
       where: { professionalId: doctorId, patientId, status: "ACTIVE" },
     }),
     prisma.medicalDocument.findMany({
       where: { patientId },
       orderBy: { issuedAt: "desc" },
+      include: { results: { orderBy: { analyte: "asc" } } },
     }),
     prisma.accessLog.findMany({
       where: { patientId },
@@ -123,15 +141,28 @@ export default async function ProntuarioPage({
     );
   }
 
-  const validation = token
-    ? validateToken({ status: token.status, expiresAt: token.expiresAt, revokedAt: token.revokedAt })
-    : null;
+  // Pode existir mais de um token ACTIVE para o mesmo par medico-paciente,
+  // porque a aprovacao cria token novo sem revogar os anteriores. Validamos
+  // cada um e usamos a uniao dos que ainda valem, do mesmo jeito que a rota
+  // de documentos (apps/web/app/api/patients/[id]/documents/route.ts).
+  const validTokens = tokens
+    .map((t) => ({
+      ...t,
+      validation: validateToken({ status: t.status, expiresAt: t.expiresAt, revokedAt: t.revokedAt }),
+    }))
+    .filter((t) => t.validation.valid);
 
-  if (token && validation?.valid) {
+  const hasAccess = validTokens.length > 0;
+  const activeToken = validTokens[0] ?? null;
+  const minutesRemaining = hasAccess
+    ? Math.max(...validTokens.map((t) => (t.validation.valid ? t.validation.minutesRemaining : 0)))
+    : 0;
+
+  if (hasAccess && activeToken) {
     await prisma.accessLog
       .create({
         data: {
-          tokenId: token.id,
+          tokenId: activeToken.id,
           actorUserId: doctorUser.id,
           patientId,
           eventType: "ACCESS",
@@ -141,20 +172,39 @@ export default async function ProntuarioPage({
       .catch(() => {});
   }
 
-  const groupedDocuments = documents.reduce<Record<string, typeof documents>>((acc, doc) => {
-    if (!acc[doc.type]) acc[doc.type] = [];
-    acc[doc.type].push(doc);
-    return acc;
-  }, {});
-
-  const documentTypes = Object.keys(groupedDocuments).sort();
-
   const typeLabel: Record<string, string> = {
     EXAM: "Exames",
     REPORT: "Laudos",
     PRESCRIPTION: "Receitas",
     IMAGING: "Imagens",
   };
+
+  const visibleDocuments = documents.filter((doc) =>
+    validTokens.some((t) => scopeAllowsDocumentType(t.scope, doc.type))
+  );
+
+  // Retido precisa refletir documento real que existe e foi filtrado, nao o
+  // que o escopo abstratamente esconderia. Um paciente sem documento nenhum
+  // nao pode acionar o cartao bloqueado so porque o escopo e restrito.
+  const hiddenDocumentTypes = Array.from(
+    new Set(
+      documents
+        .filter((doc) => !validTokens.some((t) => scopeAllowsDocumentType(t.scope, doc.type)))
+        .map((doc) => doc.type)
+    )
+  );
+  const withheld = hiddenDocumentTypes.map((type) => typeLabel[type] ?? type);
+
+  const groupedDocuments = visibleDocuments.reduce<Record<string, typeof documents>>(
+    (acc, doc) => {
+      if (!acc[doc.type]) acc[doc.type] = [];
+      acc[doc.type].push(doc);
+      return acc;
+    },
+    {}
+  );
+
+  const documentTypes = Object.keys(groupedDocuments).sort();
 
   return (
     <div className="space-y-6">
@@ -177,12 +227,12 @@ export default async function ProntuarioPage({
         </div>
       </PageHeader>
 
-      {!validation?.valid && (
+      {!hasAccess && (
         <Alert variant="destructive" className="border-destructive/50">
           <ShieldOff size={18} />
           <AlertTitle>Acesso não autorizado</AlertTitle>
           <AlertDescription className="flex flex-col gap-3">
-            {token
+            {tokens.length > 0
               ? "O token para este paciente expirou ou foi revogado."
               : "Você não possui um token ativo para este paciente."}
             <Link
@@ -195,15 +245,17 @@ export default async function ProntuarioPage({
         </Alert>
       )}
 
-      {validation?.valid && token && (
+      {hasAccess && activeToken && (
         <>
           <Alert className="border-primary-200 bg-primary-50 text-primary-foreground [&>svg]:text-primary">
             <Clock size={18} className="text-primary" />
             <AlertTitle className="text-primary">Acesso ativo</AlertTitle>
             <AlertDescription className="flex flex-col gap-3 text-primary/90">
-              O acesso expira em {formatMinutesRemaining(validation.minutesRemaining)}.
+              O acesso expira em {formatMinutesRemaining(minutesRemaining)}.
               <form action={revokeToken} className="flex">
-                <input type="hidden" name="tokenId" value={token.id} />
+                {validTokens.map((t) => (
+                  <input key={t.id} type="hidden" name="tokenId" value={t.id} />
+                ))}
                 <button
                   type="submit"
                   className={cn(
@@ -284,24 +336,28 @@ export default async function ProntuarioPage({
               <section className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold tracking-tight text-foreground">Documentos</h2>
-                  <Badge variant="secondary">{documents.length}</Badge>
+                  <Badge variant="secondary">{visibleDocuments.length}</Badge>
                 </div>
 
-                {documents.length === 0 ? (
-                  <div className="flex flex-col items-center rounded-2xl border bg-white p-8 text-center shadow-sm">
-                    <Image
-                      src="/img/empty-state-documents.png"
-                      alt="Nenhum documento cadastrado"
-                      width={240}
-                      height={192}
-                      className="mb-4 rounded-xl object-cover"
-                    />
-                    <EmptyState
-                      icon={FileText}
-                      title="Nenhum documento cadastrado"
-                      description="O paciente ainda não possui documentos no prontuário."
-                    />
-                  </div>
+                {visibleDocuments.length === 0 ? (
+                  withheld.length > 0 ? (
+                    <BlockedDocumentsCard withheld={withheld} />
+                  ) : (
+                    <div className="flex flex-col items-center rounded-2xl border bg-white p-8 text-center shadow-sm">
+                      <Image
+                        src="/img/empty-state-documents.png"
+                        alt="Nenhum documento cadastrado"
+                        width={240}
+                        height={192}
+                        className="mb-4 rounded-xl object-cover"
+                      />
+                      <EmptyState
+                        icon={FileText}
+                        title="Nenhum documento cadastrado"
+                        description="O paciente ainda não possui documentos no prontuário."
+                      />
+                    </div>
+                  )
                 ) : (
                   <div className="space-y-6">
                     {documentTypes.map((type) => (
@@ -318,11 +374,13 @@ export default async function ProntuarioPage({
                               type={doc.type}
                               mimeType={doc.mimeType}
                               issuedAt={doc.issuedAt}
+                              results={doc.results}
                             />
                           ))}
                         </div>
                       </div>
                     ))}
+                    <BlockedDocumentsCard withheld={withheld} />
                   </div>
                 )}
               </section>

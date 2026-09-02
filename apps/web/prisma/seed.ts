@@ -3,6 +3,9 @@ import { faker } from "@faker-js/faker/locale/pt_BR";
 import { createClient } from "@supabase/supabase-js";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { randomUUID } from "node:crypto";
+import { buildDemoPdf } from "./demo-pdf";
+import { MEDICAL_DOCUMENT_BUCKET, buildMedicalDocumentStorageKey } from "../lib/document-upload";
 
 function loadEnvFile(fileName: string, override = false) {
   const envPath = resolve(process.cwd(), fileName);
@@ -88,6 +91,37 @@ async function getOrCreateAuthUser(
   return existing.id;
 }
 
+// Os documentos da rodada anterior ficam sob outro patientId (uuid novo a cada seed),
+// entao nunca sao sobrescritos pelo upsert. Sem essa limpeza, cada re-execucao do
+// seed deixa arquivos orfaos no bucket.
+async function emptyMedicalDocumentsBucket(): Promise<void> {
+  const { data: folders, error } = await supabaseAdmin.storage
+    .from(MEDICAL_DOCUMENT_BUCKET)
+    .list();
+  if (error) throw new Error(`Erro ao listar o bucket: ${error.message}`);
+  if (!folders || folders.length === 0) return;
+
+  const pathsPerFolder = await Promise.all(
+    folders.map(async (folder) => {
+      const { data: files, error: filesError } = await supabaseAdmin.storage
+        .from(MEDICAL_DOCUMENT_BUCKET)
+        .list(folder.name);
+      if (filesError) {
+        throw new Error(`Erro ao listar "${folder.name}" no bucket: ${filesError.message}`);
+      }
+      return (files ?? []).map((file) => `${folder.name}/${file.name}`);
+    })
+  );
+
+  const paths = pathsPerFolder.flat();
+  if (paths.length === 0) return;
+
+  const { error: removeError } = await supabaseAdmin.storage
+    .from(MEDICAL_DOCUMENT_BUCKET)
+    .remove(paths);
+  if (removeError) throw new Error(`Erro ao limpar o bucket: ${removeError.message}`);
+}
+
 async function main() {
   console.log("Iniciando seed...");
 
@@ -101,6 +135,7 @@ async function main() {
     );
   }
 
+  await prisma.examResult.deleteMany();
   await prisma.accessLog.deleteMany();
   await prisma.accessToken.deleteMany();
   await prisma.accessRequest.deleteMany();
@@ -110,6 +145,7 @@ async function main() {
   await prisma.healthProfessionalProfile.deleteMany();
   await prisma.institution.deleteMany();
   await prisma.user.deleteMany();
+  await emptyMedicalDocumentsBucket();
 
   // ── Instituições ──────────────────────────────────────────────────────────
   const [hospSaoLucas, upaCentro] = await Promise.all([
@@ -282,54 +318,118 @@ async function main() {
     })
   );
 
-  // ── Documentos médicos (20) ───────────────────────────────────────────────
-  const docTemplates = [
-    // João Batista: 5 docs
-    { title: "Hemograma completo",              type: "EXAM",         mime: "application/pdf" },
-    { title: "Raio-X de tórax",                type: "EXAM",         mime: "image/jpeg"      },
-    { title: "Perfil lipídico",                type: "EXAM",         mime: "application/pdf" },
-    { title: "Ecocardiograma",                 type: "REPORT",       mime: "application/pdf" },
-    { title: "Receita Losartana + Metformina", type: "PRESCRIPTION", mime: "application/pdf" },
+  // ── Documentos médicos (21) ───────────────────────────────────────────────
+  const docTemplates: { title: string; type: "EXAM" | "REPORT" | "PRESCRIPTION" | "IMAGING" }[] = [
+    // João Batista: 6 docs
+    { title: "Hemograma completo", type: "EXAM" },
+    { title: "Raio-X de tórax", type: "EXAM" },
+    { title: "Perfil lipídico", type: "EXAM" },
+    { title: "Ecocardiograma", type: "REPORT" },
+    { title: "Receita Losartana + Metformina", type: "PRESCRIPTION" },
+    { title: "Glicemia em jejum", type: "EXAM" },
     // Paciente 2: 4 docs
-    { title: "Ultrassonografia abdominal",     type: "IMAGING",      mime: "image/jpeg"      },
-    { title: "Espirometria",                   type: "REPORT",       mime: "application/pdf" },
-    { title: "Glicemia em jejum",              type: "EXAM",         mime: "application/pdf" },
-    { title: "HbA1c",                          type: "EXAM",         mime: "application/pdf" },
+    { title: "Ultrassonografia abdominal", type: "IMAGING" },
+    { title: "Espirometria", type: "REPORT" },
+    { title: "Glicemia em jejum", type: "EXAM" },
+    { title: "HbA1c", type: "EXAM" },
     // Paciente 3: 4 docs
-    { title: "Eletrocardiograma",              type: "REPORT",       mime: "application/pdf" },
-    { title: "Densitometria óssea",            type: "IMAGING",      mime: "image/jpeg"      },
-    { title: "Receita Atenolol",               type: "PRESCRIPTION", mime: "application/pdf" },
-    { title: "Ressonância magnética lombar",   type: "IMAGING",      mime: "image/jpeg"      },
+    { title: "Eletrocardiograma", type: "REPORT" },
+    { title: "Densitometria óssea", type: "IMAGING" },
+    { title: "Receita Atenolol", type: "PRESCRIPTION" },
+    { title: "Ressonância magnética lombar", type: "IMAGING" },
     // Paciente 4: 4 docs
-    { title: "Creatinina sérica",              type: "EXAM",         mime: "application/pdf" },
-    { title: "Sumário de urina",               type: "EXAM",         mime: "application/pdf" },
-    { title: "Tomografia de tórax",            type: "IMAGING",      mime: "image/jpeg"      },
-    { title: "Receita Furosemida",             type: "PRESCRIPTION", mime: "application/pdf" },
+    { title: "Creatinina sérica", type: "EXAM" },
+    { title: "Sumário de urina", type: "EXAM" },
+    { title: "Tomografia de tórax", type: "IMAGING" },
+    { title: "Receita Furosemida", type: "PRESCRIPTION" },
     // Paciente 5: 3 docs
-    { title: "Fundo de olho",                  type: "REPORT",       mime: "image/jpeg"      },
-    { title: "TSH e T4 livre",                 type: "EXAM",         mime: "application/pdf" },
-    { title: "Laudo cirúrgico de apendicectomia", type: "REPORT",     mime: "application/pdf" },
+    { title: "Fundo de olho", type: "REPORT" },
+    { title: "TSH e T4 livre", type: "EXAM" },
+    { title: "Laudo cirúrgico de apendicectomia", type: "REPORT" },
   ];
 
   const docsPerPatient = [
-    docTemplates.slice(0, 5),
-    docTemplates.slice(5, 9),
-    docTemplates.slice(9, 13),
-    docTemplates.slice(13, 17),
-    docTemplates.slice(17, 20),
+    docTemplates.slice(0, 6),
+    docTemplates.slice(6, 10),
+    docTemplates.slice(10, 14),
+    docTemplates.slice(14, 18),
+    docTemplates.slice(18, 21),
   ];
 
-  await Promise.all(
+  const createdDocuments = await Promise.all(
     patients.flatMap(({ profile }, pi) =>
-      docsPerPatient[pi].map((doc, di) =>
-        prisma.medicalDocument.create({
+      docsPerPatient[pi].map(async (doc) => {
+        const issuedAt = faker.date.recent({ days: 180 });
+        const docId = randomUUID();
+        const pdf = buildDemoPdf({
+          title: doc.title,
+          patientName: profile.fullName,
+          type: doc.type,
+          issuedAt,
+        });
+        const storageKey = buildMedicalDocumentStorageKey(profile.id, docId, "application/pdf");
+
+        const { error: uploadError } = await supabaseAdmin.storage
+          .from(MEDICAL_DOCUMENT_BUCKET)
+          .upload(storageKey, pdf, { contentType: "application/pdf", upsert: true });
+        if (uploadError) {
+          throw new Error(`Upload de "${doc.title}" falhou: ${uploadError.message}`);
+        }
+
+        return prisma.medicalDocument.create({
           data: {
+            id: docId,
             patientId: profile.id,
             title: doc.title,
             type: doc.type,
-            storageKey: `patients/${profile.id}/docs/${pi}-${di}.pdf`,
-            mimeType: doc.mime,
-            issuedAt: faker.date.recent({ days: 180 }),
+            storageKey,
+            mimeType: "application/pdf",
+            issuedAt,
+          },
+        });
+      })
+    )
+  );
+
+  // ── Resultados de exame (apenas João Batista) ─────────────────────────────
+  // Valores escolhidos para bater com o perfil dele: hipertensao e pre-diabetes.
+  const examResultsByTitle: Record<
+    string,
+    { analyte: string; value: number; unit: string; referenceMin: number; referenceMax: number }[]
+  > = {
+    "Hemograma completo": [
+      { analyte: "Hemoglobina", value: 14.2, unit: "g/dL", referenceMin: 13, referenceMax: 17 },
+      { analyte: "Hematócrito", value: 42, unit: "%", referenceMin: 39, referenceMax: 50 },
+      { analyte: "Leucócitos", value: 7200, unit: "/mm3", referenceMin: 4000, referenceMax: 11000 },
+      { analyte: "Plaquetas", value: 245000, unit: "/mm3", referenceMin: 150000, referenceMax: 450000 },
+    ],
+    "Perfil lipídico": [
+      { analyte: "Colesterol total", value: 214, unit: "mg/dL", referenceMin: 0, referenceMax: 190 },
+      { analyte: "LDL", value: 142, unit: "mg/dL", referenceMin: 0, referenceMax: 130 },
+      { analyte: "HDL", value: 38, unit: "mg/dL", referenceMin: 40, referenceMax: 100 },
+      { analyte: "Triglicerídeos", value: 189, unit: "mg/dL", referenceMin: 0, referenceMax: 150 },
+    ],
+    "Glicemia em jejum": [
+      { analyte: "Glicose", value: 114, unit: "mg/dL", referenceMin: 70, referenceMax: 99 },
+    ],
+  };
+
+  const joaoProfileId = patients[0].profile.id;
+  const joaoExamDocuments = createdDocuments.filter(
+    (doc) => doc.patientId === joaoProfileId && examResultsByTitle[doc.title] !== undefined
+  );
+
+  await Promise.all(
+    joaoExamDocuments.flatMap((doc) =>
+      examResultsByTitle[doc.title].map((result) =>
+        prisma.examResult.create({
+          data: {
+            documentId: doc.id,
+            analyte: result.analyte,
+            value: result.value,
+            unit: result.unit,
+            referenceMin: result.referenceMin,
+            referenceMax: result.referenceMax,
           },
         })
       )
@@ -348,7 +448,7 @@ async function main() {
       professionalId: dr0.profile.id,
       requestedById: dr0.user.id,
       status: "APPROVED",
-      scope: "Prontuário completo",
+      scope: "FULL",
       durationMinutes: 60,
       reason: "Consulta de retorno para avaliação cardiológica",
       channelType: "WEB_PORTAL",
@@ -361,7 +461,7 @@ async function main() {
       patientId: joao.profile.id,
       professionalId: dr0.profile.id,
       status: "ACTIVE",
-      scope: "Prontuário completo",
+      scope: "FULL",
       expiresAt: new Date(now.getTime() + 45 * 60_000),
     },
   });
@@ -373,7 +473,7 @@ async function main() {
       professionalId: dr1.profile.id,
       requestedById: dr1.user.id,
       status: "PENDING",
-      scope: "Dados de emergência (alergias, medicamentos, tipo sanguíneo)",
+      scope: "EMERGENCY",
       durationMinutes: 30,
       reason: "Atendimento de urgência na UPA",
       channelType: "WEB_PORTAL",
@@ -387,7 +487,7 @@ async function main() {
       professionalId: dr0.profile.id,
       requestedById: dr0.user.id,
       status: "EXPIRED",
-      scope: "Prontuário completo",
+      scope: "EXAMS",
       durationMinutes: 30,
       reason: "Consulta anterior",
       channelType: "WEB_PORTAL",
@@ -400,7 +500,7 @@ async function main() {
       patientId: joao.profile.id,
       professionalId: dr0.profile.id,
       status: "EXPIRED",
-      scope: "Prontuário completo",
+      scope: "EXAMS",
       expiresAt: new Date(now.getTime() - 2 * 60 * 60_000),
     },
   });
@@ -448,7 +548,8 @@ async function main() {
   console.log(`   Médicos      : ${doctors.length}`);
   console.log(`   Pacientes    : ${patients.length}`);
   console.log(`   Contatos Auth: 2`);
-  console.log(`   Documentos   : 20`);
+  console.log(`   Documentos   : ${await prisma.medicalDocument.count()}`);
+  console.log(`   Resultados   : ${await prisma.examResult.count()}`);
   console.log(`   Solicitações : 3 (1 ativa, 1 pendente, 1 expirada)`);
   console.log("\nIDs para demo:");
   console.log(`   João Batista (patientProfileId) : ${joao.profile.id}`);

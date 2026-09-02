@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireDoctor } from "@/lib/session";
 import { CreateAccessRequestSchema } from "@medchain/api-contract";
+import { ACCESS_SCOPES, SCOPE_LABEL } from "@medchain/domain";
 import { buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -67,15 +68,6 @@ export default async function SolicitarPage({
   ]);
   if (!doctor) redirect("/medico/login");
 
-  const scopeOptions = [
-    "Prontuário completo",
-    "Dados de emergência (alergias, medicamentos, tipo sanguíneo)",
-    "Exames laboratoriais",
-    "Exames de imagem",
-    "Receitas e prescrições",
-    "Histórico de internações",
-  ];
-
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader title="Solicitar acesso ao prontuário" description="Preencha os dados abaixo para solicitar autorização do paciente.">
@@ -119,9 +111,9 @@ export default async function SolicitarPage({
                     <SelectValue placeholder="Selecione o escopo" />
                   </SelectTrigger>
                   <SelectContent>
-                    {scopeOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
+                    {ACCESS_SCOPES.map((scope) => (
+                      <SelectItem key={scope} value={scope}>
+                        {SCOPE_LABEL[scope]}
                       </SelectItem>
                     ))}
                   </SelectContent>

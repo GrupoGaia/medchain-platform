@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ACCESS_SCOPES } from "@medchain/domain";
 
 export const AccessRequestStatus = z.enum([
   "PENDING",
@@ -11,7 +12,7 @@ export type AccessRequestStatus = z.infer<typeof AccessRequestStatus>;
 
 export const CreateAccessRequestSchema = z.object({
   patientId: z.string().uuid(),
-  scope: z.string().min(1).max(255),
+  scope: z.enum(ACCESS_SCOPES),
   durationMinutes: z.number().int().min(15).max(480).default(60),
   reason: z.string().max(500).optional(),
 });
@@ -27,7 +28,7 @@ export const AccessRequestResponseSchema = z.object({
   status: AccessRequestStatus,
   patientId: z.string().uuid(),
   professionalId: z.string().uuid(),
-  scope: z.string(),
+  scope: z.enum(ACCESS_SCOPES),
   durationMinutes: z.number(),
   reason: z.string().nullable(),
   createdAt: z.string().datetime(),

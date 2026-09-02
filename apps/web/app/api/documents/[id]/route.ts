@@ -4,6 +4,7 @@ import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
 import { getManagedPatientIds } from "@/lib/patient-access";
 import { createSignedUrl } from "@/lib/storage";
 import { getRequestId, reportApiError } from "@/lib/api-error";
+import { scopeAllowsDocumentType } from "@medchain/domain";
 
 export async function GET(
   request: NextRequest,
@@ -23,7 +24,7 @@ export async function GET(
 
   let hasProfessionalAccess = false;
   if (!isOwner && user.professionalProfile) {
-    const token = await prisma.accessToken.findFirst({
+    const tokens = await prisma.accessToken.findMany({
       where: {
         patientId: doc.patientId,
         professionalId: user.professionalProfile.id,
@@ -31,7 +32,10 @@ export async function GET(
         expiresAt: { gt: new Date() },
       },
     });
-    hasProfessionalAccess = !!token;
+    // Pode existir mais de um token ativo para o mesmo par medico-paciente,
+    // porque a aprovacao cria token novo sem revogar os anteriores. O acesso
+    // vale se qualquer token vigente cobrir o tipo do documento.
+    hasProfessionalAccess = tokens.some((token) => scopeAllowsDocumentType(token.scope, doc.type));
   }
 
   if (!isOwner && !hasProfessionalAccess) return forbidden();

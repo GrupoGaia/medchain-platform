@@ -35,6 +35,7 @@ type MedicalDocument = {
   id: string;
   patientId: string;
   storageKey: string;
+  type: string;
 };
 
 type AccessLog = {
@@ -150,6 +151,17 @@ vi.mock("@/lib/prisma", () => {
           }) ?? null
         );
       }),
+      findMany: vi.fn(async ({ where }: { where: { patientId: string; professionalId: string; status: string; expiresAt?: { gt: Date } } }) => {
+        return Array.from(state.accessTokens.values()).filter((token) => {
+          const expiresAfter = where.expiresAt ? token.expiresAt > where.expiresAt.gt : true;
+          return (
+            token.patientId === where.patientId &&
+            token.professionalId === where.professionalId &&
+            token.status === where.status &&
+            expiresAfter
+          );
+        });
+      }),
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
         state.accessTokens.get(where.id) ?? null
       ),
@@ -160,6 +172,29 @@ vi.mock("@/lib/prisma", () => {
         state.accessTokens.set(where.id, updated);
         return updated;
       }),
+      updateMany: vi.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: { patientId: string; professionalId: string; status: string; expiresAt?: { gt: Date } };
+          data: Partial<AccessToken>;
+        }) => {
+          const matches = Array.from(state.accessTokens.values()).filter((token) => {
+            const expiresAfter = where.expiresAt ? token.expiresAt > where.expiresAt.gt : true;
+            return (
+              token.patientId === where.patientId &&
+              token.professionalId === where.professionalId &&
+              token.status === where.status &&
+              expiresAfter
+            );
+          });
+          for (const token of matches) {
+            state.accessTokens.set(token.id, { ...token, ...data });
+          }
+          return { count: matches.length };
+        }
+      ),
     },
     accessLog: {
       create: vi.fn(async ({ data }: { data: AccessLog }) => {
@@ -197,6 +232,13 @@ describe("critical API access flow", () => {
       id: "doc-1",
       patientId: PATIENT_ID,
       storageKey: `${PATIENT_ID}/doc-1.pdf`,
+      type: "EXAM",
+    });
+    state.documents.set("doc-2", {
+      id: "doc-2",
+      patientId: PATIENT_ID,
+      storageKey: `${PATIENT_ID}/doc-2.pdf`,
+      type: "PRESCRIPTION",
     });
   });
 
@@ -224,7 +266,7 @@ describe("critical API access flow", () => {
         method: "POST",
         body: JSON.stringify({
           patientId: PATIENT_ID,
-          scope: "Prontuário completo",
+          scope: "FULL",
           durationMinutes: 30,
           reason: "Atendimento de urgência",
         }),
@@ -247,9 +289,12 @@ describe("critical API access flow", () => {
       contactFor: [],
     };
 
-    const approved = await approveAccessRequest(request("/api/access-requests/request-1/approve"), {
-      params: Promise.resolve({ id: "request-1" }),
-    });
+    const approved = await approveAccessRequest(
+      request("/api/access-requests/request-1/approve", { method: "POST" }),
+      {
+        params: Promise.resolve({ id: "request-1" }),
+      }
+    );
     expect(approved.status).toBe(201);
     const approvedBody = await json(approved);
     expect(approvedBody).toMatchObject({
@@ -316,5 +361,208 @@ describe("critical API access flow", () => {
         }),
       ])
     );
+  });
+
+  it("blocks a document whose type is outside the token scope", async () => {
+    const { POST: createAccessRequest } = await import("./access-requests/route");
+    const { POST: approveAccessRequest } = await import("./access-requests/[id]/approve/route");
+    const { GET: getDocumentUrl } = await import("./documents/[id]/route");
+
+    state.currentUser = {
+      id: DOCTOR_USER_ID,
+      professionalProfile: { id: DOCTOR_ID },
+      patientProfile: null,
+      contactFor: [],
+    };
+
+    const created = await createAccessRequest(
+      request("/api/access-requests", {
+        method: "POST",
+        body: JSON.stringify({
+          patientId: PATIENT_ID,
+          scope: "EXAMS",
+          durationMinutes: 60,
+        }),
+      })
+    );
+    expect(created.status).toBe(201);
+    const createdBody = await json(created);
+    const requestId = createdBody.id as string;
+
+    state.currentUser = {
+      id: PATIENT_USER_ID,
+      patientProfile: { id: PATIENT_ID },
+      professionalProfile: null,
+      contactFor: [],
+    };
+
+    const approved = await approveAccessRequest(
+      request(`/api/access-requests/${requestId}/approve`, { method: "POST" }),
+      {
+        params: Promise.resolve({ id: requestId }),
+      }
+    );
+    expect(approved.status).toBe(201);
+
+    state.currentUser = {
+      id: DOCTOR_USER_ID,
+      professionalProfile: { id: DOCTOR_ID },
+      patientProfile: null,
+      contactFor: [],
+    };
+
+    const allowed = await getDocumentUrl(request("/api/documents/doc-1"), {
+      params: Promise.resolve({ id: "doc-1" }),
+    });
+    expect(allowed.status).toBe(200);
+
+    const blocked = await getDocumentUrl(request("/api/documents/doc-2"), {
+      params: Promise.resolve({ id: "doc-2" }),
+    });
+    expect(blocked.status).toBe(403);
+  });
+
+  it("allows access when the doctor has more than one active token with complementary scopes", async () => {
+    const { GET: getDocumentUrl } = await import("./documents/[id]/route");
+
+    const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
+
+    state.accessTokens.set("token-exams", {
+      id: "token-exams",
+      requestId: "request-exams",
+      patientId: PATIENT_ID,
+      professionalId: DOCTOR_ID,
+      scope: "EXAMS",
+      expiresAt: oneHourFromNow,
+      status: "ACTIVE",
+      revokedAt: null,
+    });
+    state.accessTokens.set("token-prescriptions", {
+      id: "token-prescriptions",
+      requestId: "request-prescriptions",
+      patientId: PATIENT_ID,
+      professionalId: DOCTOR_ID,
+      scope: "PRESCRIPTIONS",
+      expiresAt: oneHourFromNow,
+      status: "ACTIVE",
+      revokedAt: null,
+    });
+
+    state.currentUser = {
+      id: DOCTOR_USER_ID,
+      professionalProfile: { id: DOCTOR_ID },
+      patientProfile: null,
+      contactFor: [],
+    };
+
+    const examResponse = await getDocumentUrl(request("/api/documents/doc-1"), {
+      params: Promise.resolve({ id: "doc-1" }),
+    });
+    expect(examResponse.status).toBe(200);
+
+    const prescriptionResponse = await getDocumentUrl(request("/api/documents/doc-2"), {
+      params: Promise.resolve({ id: "doc-2" }),
+    });
+    expect(prescriptionResponse.status).toBe(200);
+  });
+
+  it("lets the patient owner read their own documents of any type without a token, since scope only limits third parties", async () => {
+    const { GET: getDocumentUrl } = await import("./documents/[id]/route");
+
+    state.currentUser = {
+      id: PATIENT_USER_ID,
+      patientProfile: { id: PATIENT_ID },
+      professionalProfile: null,
+      contactFor: [],
+    };
+
+    expect(state.accessTokens.size).toBe(0);
+
+    const examResponse = await getDocumentUrl(request("/api/documents/doc-1"), {
+      params: Promise.resolve({ id: "doc-1" }),
+    });
+    expect(examResponse.status).toBe(200);
+    await expect(json(examResponse)).resolves.toEqual({
+      signedUrl: `https://storage.local/${PATIENT_ID}/doc-1.pdf?signed=1`,
+    });
+
+    const prescriptionResponse = await getDocumentUrl(request("/api/documents/doc-2"), {
+      params: Promise.resolve({ id: "doc-2" }),
+    });
+    expect(prescriptionResponse.status).toBe(200);
+    await expect(json(prescriptionResponse)).resolves.toEqual({
+      signedUrl: `https://storage.local/${PATIENT_ID}/doc-2.pdf?signed=1`,
+    });
+  });
+
+  it("revokes the previous active token when the patient approves a new request", async () => {
+    const { POST: createAccessRequest } = await import("./access-requests/route");
+    const { POST: approveAccessRequest } = await import("./access-requests/[id]/approve/route");
+    const { GET: getDocumentUrl } = await import("./documents/[id]/route");
+    const { GET: getAuditLogs } = await import("./audit-logs/route");
+
+    const doctor = {
+      id: DOCTOR_USER_ID,
+      professionalProfile: { id: DOCTOR_ID },
+      patientProfile: null,
+      contactFor: [],
+    };
+    const patient = {
+      id: PATIENT_USER_ID,
+      patientProfile: { id: PATIENT_ID },
+      professionalProfile: null,
+      contactFor: [],
+    };
+
+    async function requestAndApprove(scope: string) {
+      state.currentUser = doctor;
+      const created = await createAccessRequest(
+        request("/api/access-requests", {
+          method: "POST",
+          body: JSON.stringify({ patientId: PATIENT_ID, scope, durationMinutes: 60 }),
+        })
+      );
+      expect(created.status).toBe(201);
+      const requestId = (await json(created)).id as string;
+
+      state.currentUser = patient;
+      const approved = await approveAccessRequest(
+        request(`/api/access-requests/${requestId}/approve`, { method: "POST" }),
+        { params: Promise.resolve({ id: requestId }) }
+      );
+      expect(approved.status).toBe(201);
+      return (await json(approved)).id as string;
+    }
+
+    const examsTokenId = await requestAndApprove("EXAMS");
+    const prescriptionsTokenId = await requestAndApprove("PRESCRIPTIONS");
+
+    // A concessao nova substitui a anterior: so o ultimo token fica vigente.
+    expect(state.accessTokens.get(examsTokenId)?.status).toBe("REVOKED");
+    expect(state.accessTokens.get(examsTokenId)?.revokedAt).toBeInstanceOf(Date);
+    expect(state.accessTokens.get(prescriptionsTokenId)?.status).toBe("ACTIVE");
+
+    state.currentUser = doctor;
+
+    // O exame que o token anterior liberava passa a ser negado.
+    const blockedExam = await getDocumentUrl(request("/api/documents/doc-1"), {
+      params: Promise.resolve({ id: "doc-1" }),
+    });
+    expect(blockedExam.status).toBe(403);
+
+    const allowedPrescription = await getDocumentUrl(request("/api/documents/doc-2"), {
+      params: Promise.resolve({ id: "doc-2" }),
+    });
+    expect(allowedPrescription.status).toBe(200);
+
+    // A auditoria precisa registrar o encerramento, nao so a nova autorizacao.
+    state.currentUser = patient;
+    const auditResponse = await getAuditLogs(request("/api/audit-logs"));
+    expect(auditResponse.status).toBe(200);
+    const revokeLogs = state.accessLogs.filter(
+      (log) => log.eventType === "REVOKE" && log.tokenId === examsTokenId
+    );
+    expect(revokeLogs).toHaveLength(1);
+    expect(revokeLogs[0]?.actorUserId).toBe(PATIENT_USER_ID);
   });
 });

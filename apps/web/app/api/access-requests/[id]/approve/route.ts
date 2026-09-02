@@ -35,8 +35,32 @@ export async function POST(
   if (!isPatient && !isEmergencyContact) return forbidden();
 
   const expiresAt = buildTokenExpiry(accessRequest.durationMinutes);
+  const revokedAt = new Date();
 
-  const [token] = await prisma.$transaction([
+  // A concessao nova substitui a anterior. Sem isso, um paciente que autoriza um
+  // escopo mais estreito continuaria exposto pelo token antigo ate ele vencer.
+  // So os vigentes entram: token ja vencido nao concede acesso, e registrar
+  // revogacao dele poluiria a auditoria com um evento que nao aconteceu.
+  const supersededTokens = await prisma.accessToken.findMany({
+    where: {
+      patientId: accessRequest.patientId,
+      professionalId: accessRequest.professionalId,
+      status: "ACTIVE",
+      expiresAt: { gt: revokedAt },
+    },
+    select: { id: true },
+  });
+
+  const [, token] = await prisma.$transaction([
+    prisma.accessToken.updateMany({
+      where: {
+        patientId: accessRequest.patientId,
+        professionalId: accessRequest.professionalId,
+        status: "ACTIVE",
+        expiresAt: { gt: revokedAt },
+      },
+      data: { status: "REVOKED", revokedAt },
+    }),
     prisma.accessToken.create({
       data: {
         requestId: id,
@@ -62,6 +86,20 @@ export async function POST(
       channel: "MOBILE_APP",
     },
   });
+
+  // Um log por token encerrado, para o historico do paciente mostrar que a
+  // autorizacao anterior terminou, e nao apenas que uma nova comecou.
+  for (const superseded of supersededTokens) {
+    await prisma.accessLog.create({
+      data: {
+        tokenId: superseded.id,
+        actorUserId: user.id,
+        patientId: accessRequest.patientId,
+        eventType: "REVOKE",
+        channel: "MOBILE_APP",
+      },
+    });
+  }
 
   return NextResponse.json(token, { status: 201 });
 }

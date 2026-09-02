@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ShieldCheck, ShieldX, User, Clock, Building2, Stethoscope, AlertTriangle } from "lucide-react-native";
 import { useAppStore } from "../../src/context/AppStore";
 import { colors } from "@medchain/ui-tokens";
+import { SCOPE_LABEL, SCOPE_SHARES, SCOPE_WITHHOLDS } from "@medchain/domain";
 
 export default function AutorizacaoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -127,9 +128,37 @@ export default function AutorizacaoScreen() {
               <ShieldCheck color={colors.brand[700]} size={18} />
               <View className="flex-1">
                 <Text className="text-xs text-gray-400 mb-0.5">Dados solicitados</Text>
-                <Text className="text-sm font-medium text-gray-900">{request.scope}</Text>
+                <Text className="text-sm font-medium text-gray-900">
+                  {SCOPE_LABEL[request.scope]}
+                </Text>
               </View>
             </View>
+          </View>
+
+          <View className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
+            <Text className="text-xs font-semibold text-gray-500">O médico poderá ver</Text>
+            <View className="mt-2 gap-1.5">
+              {SCOPE_SHARES[request.scope].map((item) => (
+                <Text key={item} className="text-sm text-gray-900">
+                  {item}
+                </Text>
+              ))}
+            </View>
+
+            {SCOPE_WITHHOLDS[request.scope].length > 0 && (
+              <>
+                <Text className="mt-4 text-xs font-semibold text-gray-500">
+                  Não poderá ver
+                </Text>
+                <View className="mt-2 gap-1.5">
+                  {SCOPE_WITHHOLDS[request.scope].map((item) => (
+                    <Text key={item} className="text-sm text-gray-400">
+                      {item}
+                    </Text>
+                  ))}
+                </View>
+              </>
+            )}
           </View>
 
           {/* Motivo */}
