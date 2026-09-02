@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireDoctor } from "@/lib/session";
-import { SCOPE_LABEL, validateToken } from "@medchain/domain";
+import { SCOPE_LABEL, tokenTotalMinutes, validateToken } from "@medchain/domain";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -94,6 +94,7 @@ export default async function DashboardPage() {
               <div className="grid gap-3">
                 {validTokens.map((token) => {
                   const minutesRemaining = token.validation.valid ? token.validation.minutesRemaining : 0;
+                  const totalMinutes = tokenTotalMinutes(token);
                   return (
                     <Card key={token.id} className="border shadow-sm">
                       <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -111,7 +112,7 @@ export default async function DashboardPage() {
                           </div>
                         </div>
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                          <CountdownBadge minutesRemaining={minutesRemaining} totalMinutes={60} />
+                          <CountdownBadge minutesRemaining={minutesRemaining} totalMinutes={totalMinutes} />
                           <Link
                             href={`/medico/prontuario/${token.patientId}`}
                             className={cn(buttonVariants())}

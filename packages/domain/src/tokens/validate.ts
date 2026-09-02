@@ -30,3 +30,10 @@ export function formatMinutesRemaining(minutes: number): string {
   const m = minutes % 60;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
+
+// A duracao concedida nao fica gravada no token: ela e a distancia entre criacao e expiracao.
+// O minimo de 1 evita divisao por zero em quem usa isso como denominador de progresso.
+export function tokenTotalMinutes(token: { createdAt: Date; expiresAt: Date }): number {
+  const minutes = Math.round((token.expiresAt.getTime() - token.createdAt.getTime()) / 60_000);
+  return Math.max(1, minutes);
+}
