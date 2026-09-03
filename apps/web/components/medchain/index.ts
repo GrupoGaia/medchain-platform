@@ -11,3 +11,4 @@ export * from "./user-menu";
 export * from "./document-card";
 export * from "./countdown-badge";
 export * from "./activity-card";
+export * from "./exam-results-table";

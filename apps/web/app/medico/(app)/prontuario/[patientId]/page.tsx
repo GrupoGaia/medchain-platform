@@ -4,8 +4,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireDoctor } from "@/lib/session";
 import {
-  formatMinutesRemaining,
   scopeAllowsDocumentType,
+  tokenTotalMinutes,
+  SCOPE_LABEL,
   validateToken,
 } from "@medchain/domain";
 import { buttonVariants } from "@/components/ui/button";
@@ -15,13 +16,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PageHeader } from "@/components/medchain/page-header";
 import { EmptyState } from "@/components/medchain/empty-state";
 import { DocumentCard } from "@/components/medchain/document-card";
+import { CountdownCard } from "@/components/medchain/countdown-badge";
 import { BlockedDocumentsCard } from "@/components/medchain/blocked-documents-card";
 import { buildAccessRevocationLogData } from "@/lib/audit-log";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
-  Clock,
   FileText,
   ShieldOff,
   User,
@@ -247,35 +248,35 @@ export default async function ProntuarioPage({
 
       {hasAccess && activeToken && (
         <>
-          <Alert className="border-primary-200 bg-primary-50 text-primary-foreground [&>svg]:text-primary">
-            <Clock size={18} className="text-primary" />
-            <AlertTitle className="text-primary">Acesso ativo</AlertTitle>
-            <AlertDescription className="flex flex-col gap-3 text-primary/90">
-              O acesso expira em {formatMinutesRemaining(minutesRemaining)}.
-              <form action={revokeToken} className="flex">
-                {validTokens.map((t) => (
-                  <input key={t.id} type="hidden" name="tokenId" value={t.id} />
-                ))}
-                <button
-                  type="submit"
-                  className={cn(
-                    buttonVariants({ variant: "outline", size: "sm" }),
-                    "w-fit border-primary-200 bg-white text-destructive hover:bg-red-50 hover:text-destructive"
-                  )}
-                >
-                  <ShieldOff size={14} className="mr-1.5" />
-                  Encerrar acesso
-                </button>
-              </form>
-            </AlertDescription>
-          </Alert>
+          <CountdownCard
+            minutesRemaining={minutesRemaining}
+            totalMinutes={tokenTotalMinutes(activeToken)}
+            expiresAtFormatted={formatDateTime(activeToken.expiresAt)}
+            scopeLabel={SCOPE_LABEL[activeToken.scope]}
+          >
+            <form action={revokeToken} className="flex">
+              {validTokens.map((t) => (
+                <input key={t.id} type="hidden" name="tokenId" value={t.id} />
+              ))}
+              <button
+                type="submit"
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "border-slate-200 bg-white text-rose-600 shadow-2xs hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                )}
+              >
+                <ShieldOff size={14} className="mr-1.5" />
+                Encerrar acesso
+              </button>
+            </form>
+          </CountdownCard>
 
           <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
             <div className="space-y-4">
-              <Card className="border shadow-sm">
+              <Card className="border border-slate-200/80 bg-white shadow-xs">
                 <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <User size={18} className="text-primary" />
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
+                    <User size={18} className="text-teal-600" />
                     Dados do paciente
                   </CardTitle>
                 </CardHeader>
@@ -301,13 +302,29 @@ export default async function ProntuarioPage({
               </Card>
 
               {patient.allergies.length > 0 && (
-                <Alert className="border-red-200 bg-red-50 text-red-900 [&>svg]:text-red-600">
-                  <AlertTriangle size={20} />
-                  <AlertTitle className="text-red-900">Alergias conhecidas</AlertTitle>
-                  <AlertDescription className="text-base font-semibold text-red-800">
-                    {patient.allergies.join(" · ")}
-                  </AlertDescription>
-                </Alert>
+                <div className="overflow-hidden rounded-xl border border-rose-200/90 bg-gradient-to-br from-rose-50/90 via-white to-rose-50/40 p-4 shadow-xs">
+                  <div className="flex items-center gap-2.5 text-rose-950">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100 text-rose-700 shadow-2xs">
+                      <AlertTriangle size={17} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-rose-900">
+                        Alerta de Emergência Clínica
+                      </h4>
+                      <p className="text-xs text-rose-700">Alergias severas conhecidas</p>
+                    </div>
+                  </div>
+                  <div className="mt-3.5 flex flex-wrap gap-1.5">
+                    {patient.allergies.map((allergy) => (
+                      <span
+                        key={allergy}
+                        className="inline-flex items-center rounded-md border border-rose-200 bg-rose-100/90 px-2.5 py-1 text-xs font-bold text-rose-900 shadow-2xs"
+                      >
+                        {allergy}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
 
               {patient.emergencyContacts.length > 0 && (
