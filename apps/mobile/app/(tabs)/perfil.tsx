@@ -13,6 +13,7 @@ import { SectionLabel, Text } from "../../src/components";
 import { User, AlertTriangle, Pill, Phone, LogOut, UserPlus } from "lucide-react-native";
 import { api, type PatientProfileResponse } from "../../src/services/api";
 import { useAuth } from "../../src/context/AuthProvider";
+import { formatCpf } from "@medchain/domain";
 import { colors } from "@medchain/ui-tokens";
 
 function getInitials(fullName: string): string {
@@ -136,6 +137,25 @@ export default function PerfilScreen() {
           <Text className="text-sm text-gray-400">
             Tipo sanguíneo: {profile.bloodType ?? "Não informado"}
           </Text>
+
+          {/* O medico localiza o paciente pelo CPF, entao o paciente precisa
+              conseguir ler o dele para ditar em atendimento. */}
+          {profile.cpf && (
+            <View className="mt-4 items-center rounded-xl border border-brand-100 bg-brand-50 px-5 py-3">
+              <Text className="text-[11px] font-bold uppercase tracking-wider text-brand-700">
+                Seu CPF
+              </Text>
+              <Text
+                className="mt-0.5 text-lg font-bold tracking-wide text-gray-900"
+                selectable
+              >
+                {formatCpf(profile.cpf)}
+              </Text>
+              <Text className="mt-1 text-center text-xs text-gray-500">
+                Informe ao médico para ele solicitar acesso
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Dados críticos */}

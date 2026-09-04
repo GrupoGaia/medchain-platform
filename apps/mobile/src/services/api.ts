@@ -119,6 +119,9 @@ export const api = {
 export interface PatientProfileResponse {
   id: string;
   fullName: string;
+  // Nulo para quem se cadastrou antes da coluna existir. Chega do servidor
+  // como digitos, sem mascara.
+  cpf: string | null;
   bloodType: string | null;
   allergies: string[];
   chronicConditions: string[];
