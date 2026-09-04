@@ -1,14 +1,14 @@
 import { useState } from "react";
-import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Text } from "../../src/components";
+import { ShieldPlus } from "lucide-react-native";
+import {
+  Button,
+  Field,
+  Screen,
+  Surface,
+  Text,
+} from "../../src/components";
 import { useAuth } from "../../src/context/AuthProvider";
 
 export default function LoginScreen() {
@@ -19,105 +19,112 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSignIn = async () => {
+  async function handleSignIn() {
     if (!email || !password) {
-      setError("Preencha email e senha.");
+      setError("Preencha e-mail e senha.");
       return;
     }
     setLoading(true);
     setError(null);
-    const { error } = await signIn(email.trim(), password);
+    const result = await signIn(email.trim(), password);
     setLoading(false);
-    if (error) setError("Email ou senha incorretos.");
-  };
+    if (result.error) setError("E-mail ou senha incorretos.");
+  }
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-brand-50"
+      className="flex-1"
     >
-      <View className="flex-1 items-center justify-center px-6">
-        {/* Logo */}
-        <View className="mb-8 items-center">
-          <View className="mb-3 h-16 w-16 items-center justify-center rounded-2xl bg-brand-600">
-            <Text className="text-2xl font-bold text-white">M</Text>
+      <Screen center>
+        <View className="items-center">
+          <View className="h-14 w-14 items-center justify-center rounded-xl bg-interactive">
+            <ShieldPlus size={26} color="#FFFFFF" />
           </View>
-          <Text className="text-2xl font-bold text-gray-900">MedChain</Text>
-          <Text className="mt-1 text-sm text-gray-500">Seu prontuário, sob seu controle</Text>
+          <Text
+            accessibilityRole="header"
+            className="mt-3 text-page-title font-bold text-foreground"
+          >
+            MedChain
+          </Text>
+          <Text className="mt-1 text-center text-body-sm text-foreground-tertiary">
+            Seu prontuário, sob o seu controle.
+          </Text>
         </View>
 
-        {/* Card */}
-        <View className="w-full rounded-2xl bg-white p-6 shadow-sm">
-          <Text className="mb-4 text-lg font-semibold text-gray-900">Entrar</Text>
+        <Surface className="mt-8">
+          <Text className="text-section-title font-semibold text-foreground">
+            Entrar
+          </Text>
 
-          {error && (
-            <View className="mb-4 rounded-lg bg-red-50 p-3">
-              <Text className="text-sm text-red-600">{error}</Text>
+          {error ? (
+            <View
+              accessibilityRole="alert"
+              className="mt-3 rounded-lg border border-danger-border bg-danger-subtle px-3 py-2.5"
+            >
+              <Text className="text-body-sm font-medium text-danger">{error}</Text>
             </View>
-          )}
+          ) : null}
 
-          <View className="mb-3">
-            <Text className="mb-1 text-sm font-medium text-gray-700">Email</Text>
-            <TextInput
+          <View className="mt-4 gap-4">
+            <Field
+              label="E-mail"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
+              autoCorrect={false}
               keyboardType="email-address"
               autoComplete="email"
+              textContentType="emailAddress"
               placeholder="seu@email.com"
-              className="rounded-lg border border-gray-300 px-3 py-3 text-sm text-gray-900"
             />
-          </View>
-
-          <View className="mb-5">
-            <Text className="mb-1 text-sm font-medium text-gray-700">Senha</Text>
-            <TextInput
+            <Field
+              label="Senha"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
-              autoComplete="password"
-              placeholder="••••••••"
-              className="rounded-lg border border-gray-300 px-3 py-3 text-sm text-gray-900"
+              autoComplete="current-password"
+              textContentType="password"
+              placeholder="Sua senha"
             />
           </View>
 
-          <TouchableOpacity
-            onPress={handleSignIn}
+          <Button
+            className="mt-5"
+            label="Entrar"
+            loading={loading}
             disabled={loading}
-            className="items-center rounded-xl bg-brand-600 py-3"
-          >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text className="font-semibold text-white">Entrar</Text>
-            )}
-          </TouchableOpacity>
+            onPress={handleSignIn}
+          />
 
           {/* A tela de cadastro existia mas nao tinha como ser aberta: nada no
               app navegava ate ela. Sem este link, nem paciente novo nem contato
               de emergencia conseguem criar conta. */}
-          <TouchableOpacity
+          <Pressable
             onPress={() => router.push("/(auth)/cadastro" as never)}
-            className="items-center py-3"
             accessibilityRole="button"
-            accessibilityLabel="Criar conta"
+            accessibilityLabel="Criar uma conta"
+            className="mt-3 min-h-touch items-center justify-center"
           >
-            <Text className="text-sm text-gray-500">
-              Não tem conta? <Text className="font-medium text-brand-600">Criar conta</Text>
+            <Text className="text-body-sm text-foreground-tertiary">
+              Não tem conta?{" "}
+              <Text className="font-semibold text-interactive">Criar conta</Text>
             </Text>
-          </TouchableOpacity>
-        </View>
+          </Pressable>
+        </Surface>
 
-        {/* Demo hint */}
-        <View className="mt-6 rounded-xl bg-white/70 px-4 py-3">
-          <Text className="text-center text-xs font-semibold text-gray-500">
-            Demo - senha: medchain123
+        <Surface tone="subtle" className="mt-5">
+          <Text className="text-overline font-semibold uppercase text-foreground-tertiary">
+            Ambiente de demonstração
           </Text>
-          <Text className="mt-0.5 text-center text-xs text-gray-400">
-            joao.batista@exemplo.com (paciente)
+          <Text className="mt-1.5 text-body-sm text-foreground-secondary">
+            joao.batista@exemplo.com
           </Text>
-        </View>
-      </View>
+          <Text className="text-body-sm text-foreground-secondary">
+            Senha: medchain123
+          </Text>
+        </Surface>
+      </Screen>
     </KeyboardAvoidingView>
   );
 }

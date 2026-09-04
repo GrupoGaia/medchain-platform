@@ -1,17 +1,17 @@
 import { useState } from "react";
-import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  ActivityIndicator,
-} from "react-native";
-import { Text } from "../../src/components";
+import { KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { useRouter } from "expo-router";
-import { useAuth } from "../../src/context/AuthProvider";
 import { isValidCpf, normalizeCpf } from "@medchain/domain";
+import {
+  Button,
+  Field,
+  Screen,
+  ScreenHeader,
+  SectionHeader,
+  Surface,
+  Text,
+} from "../../src/components";
+import { useAuth } from "../../src/context/AuthProvider";
 
 type Role = "PATIENT" | "EMERGENCY_CONTACT";
 
@@ -26,6 +26,19 @@ function maskCpf(value: string): string {
   }
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
+
+const ROLES: { value: Role; label: string; description: string }[] = [
+  {
+    value: "PATIENT",
+    label: "Sou o paciente",
+    description: "Você controla quem vê o seu prontuário.",
+  },
+  {
+    value: "EMERGENCY_CONTACT",
+    label: "Sou contato de emergência",
+    description: "Você responde por um paciente, depois que ele aceitar.",
+  },
+];
 
 export default function CadastroScreen() {
   const { signUp } = useAuth();
@@ -42,7 +55,7 @@ export default function CadastroScreen() {
 
   const isContact = role === "EMERGENCY_CONTACT";
 
-  const handleSignUp = async () => {
+  async function handleSignUp() {
     if (!fullName || !cpf || !email || !password) {
       setError("Preencha todos os campos.");
       return;
@@ -66,7 +79,7 @@ export default function CadastroScreen() {
 
     setLoading(true);
     setError(null);
-    const { error } = await signUp(
+    const result = await signUp(
       email.trim(),
       password,
       isContact
@@ -80,172 +93,176 @@ export default function CadastroScreen() {
         : { role: "PATIENT", fullName: fullName.trim(), cpf: normalizeCpf(cpf) }
     );
     setLoading(false);
-    if (error) {
-      setError(error.includes("already") ? "Este email já está cadastrado." : error);
-      return;
+    if (result.error) {
+      setError(
+        result.error.includes("already")
+          ? "Este e-mail já está cadastrado."
+          : result.error
+      );
     }
-    // signUp com confirmação automática (email_confirm: true no seed)
-    // Na produção aguardar confirmação por email
-  };
+    // signUp com confirmação automática (email_confirm: true no seed).
+    // Na produção aguardar confirmação por email.
+  }
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-brand-50"
+      className="flex-1"
     >
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="flex-1">
-        <View className="flex-1 items-center justify-center px-6 py-10">
-          <View className="mb-6 items-center">
-            <View className="mb-3 h-14 w-14 items-center justify-center rounded-2xl bg-brand-600">
-              <Text className="text-xl font-bold text-white">M</Text>
-            </View>
-            <Text className="text-xl font-bold text-gray-900">Criar conta</Text>
+      <Screen>
+        <ScreenHeader
+          title="Criar conta"
+          subtitle="Leva menos de um minuto e não pede nenhum dado clínico agora."
+          onBack={() => router.back()}
+        />
+
+        {error ? (
+          <View
+            accessibilityRole="alert"
+            className="mb-4 rounded-lg border border-danger-border bg-danger-subtle px-3 py-2.5"
+          >
+            <Text className="text-body-sm font-medium text-danger">{error}</Text>
           </View>
+        ) : null}
 
-          <View className="w-full rounded-2xl bg-white p-6 shadow-sm">
-            {error && (
-              <View className="mb-4 rounded-lg bg-red-50 p-3">
-                <Text className="text-sm text-red-600">{error}</Text>
-              </View>
-            )}
-
-            <Text className="mb-2 text-sm font-medium text-gray-700">Você é</Text>
-            <View className="mb-4 flex-row gap-2">
-              {(
-                [
-                  ["PATIENT", "Paciente"],
-                  ["EMERGENCY_CONTACT", "Contato de emergência"],
-                ] as const
-              ).map(([value, label]) => {
-                const active = role === value;
+        <View className="gap-6">
+          {/* Papel primeiro: é ele que muda o significado do CPF pedido logo
+              abaixo, de "o seu" para "o do paciente". */}
+          <View className="gap-3">
+            <SectionHeader title="Quem é você" />
+            <View accessibilityRole="radiogroup" className="gap-2">
+              {ROLES.map((option) => {
+                const active = role === option.value;
                 return (
-                  <TouchableOpacity
-                    key={value}
+                  <Pressable
+                    key={option.value}
                     onPress={() => {
-                      setRole(value);
+                      setRole(option.value);
                       setCpf("");
                       setError(null);
                     }}
-                    className={`flex-1 rounded-xl border px-3 py-2.5 ${
-                      active ? "border-brand-600 bg-brand-50" : "border-gray-200 bg-white"
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: active, checked: active }}
+                    accessibilityLabel={`${option.label}. ${option.description}`}
+                    className={`min-h-touch justify-center rounded-xl border px-4 py-3 ${
+                      active
+                        ? "border-interactive bg-interactive-subtle"
+                        : "border-border bg-surface active:bg-surface-subtle"
                     }`}
-                    accessibilityRole="button"
-                    accessibilityLabel={label}
                   >
                     <Text
-                      className={`text-center text-xs font-semibold ${
-                        active ? "text-brand-700" : "text-gray-600"
+                      className={`text-body ${
+                        active
+                          ? "font-semibold text-interactive"
+                          : "font-medium text-foreground"
                       }`}
                     >
-                      {label}
+                      {option.label}
                     </Text>
-                  </TouchableOpacity>
+                    <Text className="mt-0.5 text-caption text-foreground-tertiary">
+                      {option.description}
+                    </Text>
+                  </Pressable>
                 );
               })}
             </View>
-
-            <View className="mb-3">
-              <Text className="mb-1 text-sm font-medium text-gray-700">Nome completo</Text>
-              <TextInput
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
-                placeholder="João da Silva"
-                className="rounded-lg border border-gray-300 px-3 py-3 text-sm text-gray-900"
-              />
-            </View>
-
-            <View className="mb-3">
-              <Text className="mb-1 text-sm font-medium text-gray-700">
-                {isContact ? "CPF do paciente" : "CPF"}
-              </Text>
-              <TextInput
-                value={cpf}
-                onChangeText={(value) => setCpf(maskCpf(value))}
-                keyboardType="number-pad"
-                placeholder="000.000.000-00"
-                maxLength={14}
-                className="rounded-lg border border-gray-300 px-3 py-3 text-sm text-gray-900"
-              />
-              <Text className="mt-1 text-xs text-gray-400">
-                {isContact
-                  ? "O paciente precisa aceitar seu pedido antes de você ver qualquer dado."
-                  : "É por ele que o médico localiza você para pedir acesso."}
-              </Text>
-            </View>
-
-            {isContact && (
-              <>
-                <View className="mb-3">
-                  <Text className="mb-1 text-sm font-medium text-gray-700">
-                    Seu parentesco
-                  </Text>
-                  <TextInput
-                    value={relation}
-                    onChangeText={setRelation}
-                    autoCapitalize="words"
-                    placeholder="Filha, Cônjuge, Irmão"
-                    className="rounded-lg border border-gray-300 px-3 py-3 text-sm text-gray-900"
-                  />
-                </View>
-
-                <View className="mb-3">
-                  <Text className="mb-1 text-sm font-medium text-gray-700">Seu telefone</Text>
-                  <TextInput
-                    value={phone}
-                    onChangeText={setPhone}
-                    keyboardType="phone-pad"
-                    placeholder="(11) 9 9999-0000"
-                    className="rounded-lg border border-gray-300 px-3 py-3 text-sm text-gray-900"
-                  />
-                </View>
-              </>
-            )}
-
-            <View className="mb-3">
-              <Text className="mb-1 text-sm font-medium text-gray-700">Email</Text>
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                autoComplete="email"
-                placeholder="seu@email.com"
-                className="rounded-lg border border-gray-300 px-3 py-3 text-sm text-gray-900"
-              />
-            </View>
-
-            <View className="mb-5">
-              <Text className="mb-1 text-sm font-medium text-gray-700">Senha</Text>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                placeholder="mínimo 6 caracteres"
-                className="rounded-lg border border-gray-300 px-3 py-3 text-sm text-gray-900"
-              />
-            </View>
-
-            <TouchableOpacity
-              onPress={handleSignUp}
-              disabled={loading}
-              className="mb-3 items-center rounded-xl bg-brand-600 py-3"
-            >
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text className="font-semibold text-white">Criar conta</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => router.back()} className="items-center py-2">
-              <Text className="text-sm text-gray-500">
-                Já tem conta? <Text className="font-medium text-brand-600">Entrar</Text>
-              </Text>
-            </TouchableOpacity>
           </View>
+
+          <View className="gap-3">
+            <SectionHeader title="Seus dados" />
+            <Surface>
+              <View className="gap-4">
+                <Field
+                  label="Nome completo"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  autoCapitalize="words"
+                  placeholder="João da Silva"
+                />
+                <Field
+                  label={isContact ? "CPF do paciente" : "Seu CPF"}
+                  value={cpf}
+                  onChangeText={(value) => setCpf(maskCpf(value))}
+                  keyboardType="number-pad"
+                  placeholder="000.000.000-00"
+                  maxLength={14}
+                  hint={
+                    isContact
+                      ? "O paciente precisa aceitar seu pedido antes de você ver qualquer dado."
+                      : "É por ele que o profissional localiza você para pedir acesso."
+                  }
+                />
+
+                {isContact && (
+                  <>
+                    <Field
+                      label="Seu parentesco"
+                      value={relation}
+                      onChangeText={setRelation}
+                      autoCapitalize="words"
+                      placeholder="Filha, cônjuge, irmão"
+                    />
+                    <Field
+                      label="Seu telefone"
+                      value={phone}
+                      onChangeText={setPhone}
+                      keyboardType="phone-pad"
+                      placeholder="(11) 9 9999-0000"
+                    />
+                  </>
+                )}
+              </View>
+            </Surface>
+          </View>
+
+          <View className="gap-3">
+            <SectionHeader title="Acesso à conta" />
+            <Surface>
+              <View className="gap-4">
+                <Field
+                  label="E-mail"
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  placeholder="seu@email.com"
+                />
+                <Field
+                  label="Senha"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  textContentType="newPassword"
+                  placeholder="Mínimo de 6 caracteres"
+                  hint="Use uma senha que você não usa em outro serviço."
+                />
+              </View>
+            </Surface>
+          </View>
+
+          <Button
+            label="Criar conta"
+            loading={loading}
+            disabled={loading}
+            onPress={handleSignUp}
+          />
+
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Voltar para a tela de entrar"
+            className="min-h-touch items-center justify-center"
+          >
+            <Text className="text-body-sm text-foreground-tertiary">
+              Já tem conta?{" "}
+              <Text className="font-semibold text-interactive">Entrar</Text>
+            </Text>
+          </Pressable>
         </View>
-      </ScrollView>
+      </Screen>
     </KeyboardAvoidingView>
   );
 }
