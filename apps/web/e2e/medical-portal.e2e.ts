@@ -67,7 +67,11 @@ test("medico solicita acesso, paciente aprova e o medico encerra o token", async
   expect(approvedToken.professionalId).toBe(accessRequest.professionalId);
 
   await page.goto(`/medico/prontuario/${approvedToken.patientId}`);
-  await expect(page.getByText("Acesso ativo")).toBeVisible();
+  // O rotulo e "Acesso Temporário Ativo" desde o refinamento visual. A
+  // assercao antiga procurava "Acesso ativo" e nunca foi atualizada, porque o
+  // E2E roda sob demanda e nao entra no CI.
+  await expect(page.getByText("Acesso Temporário Ativo")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Encerrar acesso" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Documentos" })).toBeVisible();
 
   await page.getByRole("button", { name: "Encerrar acesso" }).click();
