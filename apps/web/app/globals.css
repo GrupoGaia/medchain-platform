@@ -1,23 +1,28 @@
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Camada de tokens do portal.
+
+  Toda cor é declarada como tripla HSL sem a função `hsl()`, porque é assim que
+  o tailwind.config.ts consegue aplicar o modificador de opacidade
+  (`hsl(var(--x) / <alpha-value>)`). Os valores derivam de packages/ui-tokens,
+  que é a mesma fonte que alimenta o app mobile; lib/theme-tokens.test.ts falha
+  se as duas saírem de sincronia.
+
+  Regra de uso da marca: teal identifica e aciona, não decora. O produto é
+  ~90% superfície neutra.
+*/
+
 @layer base {
   :root {
+    /* ── Marca ───────────────────────────────────────────────────────────── */
     --brand-primary: #0d9488;
     --brand-light: #f0fdfa;
 
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-
-    /* Escala derivada de packages/ui-tokens (colors.brand), convertida para HSL.
-       O teste em lib/theme-tokens.test.ts falha se estes valores saírem de sincronia. */
+    /* Escala derivada de packages/ui-tokens (colors.brand). */
     --primary: 175 84% 32%;
     --primary-foreground: 0 0% 100%;
     --primary-50: 166 76% 97%;
@@ -31,50 +36,181 @@
     --primary-800: 176 69% 22%;
     --primary-900: 176 61% 19%;
 
+    /* ── Superfícies ─────────────────────────────────────────────────────── */
+    /* `background` é o canvas da aplicação; `surface` é o cartão em cima dele. */
+    --background: 220 23% 97%;
+    --surface: 0 0% 100%;
+    --surface-subtle: 210 20% 98%;
+    --surface-raised: 0 0% 100%;
+    --surface-inverse: 221 39% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 221 39% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 221 39% 11%;
+
+    /* ── Texto ───────────────────────────────────────────────────────────── */
+    /* Os três níveis passam em AA sobre superfície e sobre canvas.
+       `text-disabled` é o único abaixo do limite, e por isso só aparece em
+       controle desabilitado, onde a WCAG não exige contraste. */
+    --foreground: 221 39% 11%;
+    --text-primary: 221 39% 11%;
+    --text-secondary: 215 14% 34%;
+    --text-tertiary: 220 9% 46%;
+    --text-inverse: 0 0% 100%;
+    --text-disabled: 218 11% 65%;
+
+    /* ── Bordas ──────────────────────────────────────────────────────────── */
+    --border: 220 13% 91%;
+    --border-subtle: 220 14% 96%;
+    --border-strong: 216 12% 84%;
+    /* Contorno de controle de formulário: 3,3:1 contra branco (SC 1.4.11). */
+    --input: 219 12% 57%;
+
+    /* ── Interação ───────────────────────────────────────────────────────── */
+    /* `interactive` é o brand-700, e não o 600: é o tom mais claro da marca
+       que sustenta texto branco em cima com 5,5:1. */
+    --interactive: 175 77% 26%;
+    --interactive-hover: 176 69% 22%;
+    --interactive-subtle: 166 76% 97%;
+    --interactive-border: 167 85% 89%;
+    --ring: 175 84% 32%;
+    --disabled: 220 14% 96%;
+
     --secondary: 220 14% 96%;
-    --secondary-foreground: 222 47% 11%;
-
-    --muted: 220 14% 98%;
+    --secondary-foreground: 217 19% 27%;
+    --muted: 210 20% 98%;
     --muted-foreground: 220 9% 46%;
-
     --accent: 166 76% 97%;
-    --accent-foreground: 176 61% 19%;
+    --accent-foreground: 176 69% 22%;
 
-    --destructive: 0 84% 50%;
+    /* ── Estado ──────────────────────────────────────────────────────────── */
+    /* `-fg` é o único tom aprovado para texto e ícone; `-solid` preenche. */
+    --success: 142 72% 29%;
+    --success-solid: 142 76% 36%;
+    --success-subtle: 138 76% 97%;
+    --success-border: 141 79% 85%;
+
+    --warning: 26 90% 37%;
+    --warning-solid: 32 95% 44%;
+    --warning-subtle: 48 100% 96%;
+    --warning-border: 48 97% 77%;
+
+    --danger: 0 74% 42%;
+    --danger-solid: 0 72% 51%;
+    --danger-subtle: 0 86% 97%;
+    --danger-border: 0 96% 89%;
+
+    --info: 245 58% 51%;
+    --info-solid: 239 84% 67%;
+    --info-subtle: 226 100% 97%;
+    --info-border: 228 96% 89%;
+
+    /* Aliases que o shadcn/ui espera encontrar. */
+    --destructive: 0 74% 42%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 173 80% 40%;
+    /* ── Forma e elevação ────────────────────────────────────────────────── */
+    --radius: 0.5rem;
 
-    --radius: 0.625rem;
+    --shadow-surface: 0 1px 2px 0 rgb(16 24 40 / 0.04);
+    --shadow-floating: 0 4px 12px -2px rgb(16 24 40 / 0.08),
+      0 2px 4px -2px rgb(16 24 40 / 0.04);
+    --shadow-modal: 0 20px 40px -12px rgb(16 24 40 / 0.18),
+      0 4px 8px -4px rgb(16 24 40 / 0.06);
 
-    --sidebar: 0 0% 98%;
-    --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 175 84% 32%;
+    /* ── Movimento ───────────────────────────────────────────────────────── */
+    --duration-fast: 120ms;
+    --duration-base: 160ms;
+    --duration-slow: 200ms;
+    --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+
+    /* ── Barra lateral ───────────────────────────────────────────────────── */
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 215 14% 34%;
+    --sidebar-primary: 175 77% 26%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 166 76% 97%;
-    --sidebar-accent-foreground: 176 61% 19%;
+    --sidebar-accent-foreground: 176 69% 22%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 173 80% 40%;
-
-    --chart-1: 175 84% 32%;
-    --chart-2: 173 80% 40%;
-    --chart-3: 172 66% 50%;
-    --chart-4: 38 92% 50%;
-    --chart-5: 0 84% 50%;
-  }
-
-  body {
-    @apply antialiased bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    --sidebar-ring: 175 84% 32%;
   }
 
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
 
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+    font-variant-numeric: tabular-nums lining-nums;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Números em corpo de texto voltam ao padrão: só tabela, contador e valor de
+     exame ganham com largura fixa. */
+  p,
+  span,
+  li {
+    font-variant-numeric: normal;
+  }
+
+  /* Indicador de foco único para todo o portal. Fica visível apenas na
+     navegação por teclado e tem 3,7:1 contra superfície branca. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* O @tailwindcss/forms aplica `outline: 2px solid transparent` em todo campo
+     em foco, com seletor de especificidade maior que `:focus-visible` sozinho.
+     Sem repetir a regra com o elemento no seletor, campo e área de texto
+     ficariam sem indicador visível de teclado. */
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary-100));
+    color: hsl(var(--primary-900));
+  }
+
+  /* Rolagem discreta em painéis internos, sem esconder a barra: quem usa o
+     mouse precisa continuar enxergando que a área rola. */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border-strong)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border-strong));
+    border-radius: 9999px;
+  }
+}
+
+/* Nenhum movimento é essencial para entender a interface, então quem pediu
+   menos animação recebe a mudança de estado instantânea. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
