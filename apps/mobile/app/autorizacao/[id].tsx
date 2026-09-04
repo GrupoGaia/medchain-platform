@@ -25,8 +25,8 @@ export default function AutorizacaoScreen() {
 
   if (!request) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-slate-50">
-        <Text className="text-slate-500">Pedido não encontrado.</Text>
+      <SafeAreaView className="flex-1 items-center justify-center bg-gray-50">
+        <Text className="text-gray-500">Pedido não encontrado.</Text>
       </SafeAreaView>
     );
   }
@@ -70,35 +70,35 @@ export default function AutorizacaoScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50">
+    <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header Institucional */}
-      <View className="flex-row items-center justify-between border-b border-slate-200 bg-white px-5 py-3.5 shadow-2xs">
+      <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-5 py-3.5 shadow-2xs">
         <TouchableOpacity
           onPress={() => router.back()}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           className="flex-row items-center py-1"
         >
-          <Text className="text-sm font-semibold text-teal-700">← Voltar</Text>
+          <Text className="text-sm font-semibold text-brand-700">← Voltar</Text>
         </TouchableOpacity>
-        <Text className="text-base font-bold text-slate-900">Solicitação de Acesso</Text>
+        <Text className="text-base font-bold text-gray-900">Solicitação de Acesso</Text>
         <View className="w-12" />
       </View>
 
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
         {/* Card do Médico Solicitante */}
-        <View className="mb-4 flex-row items-center gap-3.5 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs">
-          <View className="h-12 w-12 items-center justify-center rounded-full border border-teal-100 bg-teal-50">
+        <View className="mb-4 flex-row items-center gap-3.5 rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
+          <View className="h-12 w-12 items-center justify-center rounded-full border border-brand-100 bg-brand-50">
             <User color={colors.brand[700]} size={24} />
           </View>
           <View className="flex-1">
-            <Text className="text-base font-bold text-slate-900">
+            <Text className="text-base font-bold text-gray-900">
               {request.professional.fullName}
             </Text>
-            <Text className="text-xs text-slate-500">
+            <Text className="text-xs text-gray-500">
               CRM {request.professional.crm} · {request.professional.specialty}
             </Text>
             {request.professional.institution?.name && (
-              <Text className="mt-0.5 text-xs font-semibold text-teal-800">
+              <Text className="mt-0.5 text-xs font-semibold text-brand-800">
                 {request.professional.institution.name}
               </Text>
             )}
@@ -106,18 +106,18 @@ export default function AutorizacaoScreen() {
         </View>
 
         {/* Detalhes da Solicitação */}
-        <View className="mb-4 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs">
-          <Text className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+        <View className="mb-4 rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
+          <Text className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">
             Parâmetros do acesso
           </Text>
 
-          <View className="flex-row items-center justify-between border-b border-slate-100 pb-3">
+          <View className="flex-row items-center justify-between border-b border-gray-100 pb-3">
             <View className="flex-row items-center gap-2.5">
               <Clock color={colors.brand[700]} size={16} />
-              <Text className="text-xs text-slate-600">Duração solicitada</Text>
+              <Text className="text-xs text-gray-600">Duração solicitada</Text>
             </View>
-            <View className="rounded-md bg-slate-100 px-2 py-0.5">
-              <Text className="text-xs font-bold text-slate-800">
+            <View className="rounded-md bg-gray-100 px-2 py-0.5">
+              <Text className="text-xs font-bold text-gray-800">
                 {request.durationMinutes} minutos
               </Text>
             </View>
@@ -126,10 +126,10 @@ export default function AutorizacaoScreen() {
           <View className="flex-row items-center justify-between pt-3">
             <View className="flex-row items-center gap-2.5">
               <ShieldCheck color={colors.brand[700]} size={16} />
-              <Text className="text-xs text-slate-600">Escopo de dados</Text>
+              <Text className="text-xs text-gray-600">Escopo de dados</Text>
             </View>
-            <View className="rounded-md bg-teal-50 border border-teal-100 px-2 py-0.5">
-              <Text className="text-xs font-bold text-teal-800">
+            <View className="rounded-md bg-brand-50 border border-brand-100 px-2 py-0.5">
+              <Text className="text-xs font-bold text-brand-800">
                 {SCOPE_LABEL[request.scope]}
               </Text>
             </View>
@@ -150,7 +150,7 @@ export default function AutorizacaoScreen() {
         </View>
 
         {/* Detalhamento de Soberania (O que pode ver / Não pode ver) */}
-        <View className="mb-4 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs">
+        <View className="mb-4 rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
           <Text className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-800">
             O médico poderá visualizar
           </Text>
@@ -158,25 +158,25 @@ export default function AutorizacaoScreen() {
             {SCOPE_SHARES[request.scope].map((item) => (
               <View key={item} className="flex-row items-center gap-2">
                 <View className="h-4 w-4 items-center justify-center rounded-full bg-emerald-100">
-                  <Check size={10} color="#047857" />
+                  <Check size={10} color={colors.alert.green} />
                 </View>
-                <Text className="text-xs font-medium text-slate-800">{item}</Text>
+                <Text className="text-xs font-medium text-gray-800">{item}</Text>
               </View>
             ))}
           </View>
 
           {SCOPE_WITHHOLDS[request.scope].length > 0 && (
-            <View className="mt-4 border-t border-slate-100 pt-3">
-              <Text className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+            <View className="mt-4 border-t border-gray-100 pt-3">
+              <Text className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400">
                 Permanecerá privado (Não compartilhado)
               </Text>
               <View className="gap-2">
                 {SCOPE_WITHHOLDS[request.scope].map((item) => (
                   <View key={item} className="flex-row items-center gap-2">
-                    <View className="h-4 w-4 items-center justify-center rounded-full bg-slate-100">
-                      <X size={10} color="#94A3B8" />
+                    <View className="h-4 w-4 items-center justify-center rounded-full bg-gray-100">
+                      <X size={10} color={colors.neutral.muted} />
                     </View>
-                    <Text className="text-xs text-slate-400">{item}</Text>
+                    <Text className="text-xs text-gray-400">{item}</Text>
                   </View>
                 ))}
               </View>
@@ -185,17 +185,17 @@ export default function AutorizacaoScreen() {
         </View>
 
         {/* Aviso de segurança */}
-        <Text className="mb-6 px-3 text-center text-xs text-slate-400">
+        <Text className="mb-6 px-3 text-center text-xs text-gray-400">
           O acesso é auditado e expira automaticamente após o período. Você pode revogá-lo a qualquer momento.
         </Text>
 
         {/* Botões de ação */}
         {isResolved ? (
-          <View className="items-center rounded-2xl bg-slate-100 p-5">
-            <Text className="text-base font-semibold text-slate-700">
+          <View className="items-center rounded-2xl bg-gray-100 p-5">
+            <Text className="text-base font-semibold text-gray-700">
               {request.status === "APPROVED" ? "Acesso autorizado" : "Acesso negado"}
             </Text>
-            <Text className="mt-1 text-xs text-slate-400">Este pedido já foi respondido.</Text>
+            <Text className="mt-1 text-xs text-gray-400">Este pedido já foi respondido.</Text>
           </View>
         ) : (
           <View className="gap-3">
@@ -213,12 +213,12 @@ export default function AutorizacaoScreen() {
             <TouchableOpacity
               onPress={handleDeny}
               activeOpacity={0.85}
-              className="flex-row items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3.5 shadow-2xs active:bg-slate-50"
+              className="flex-row items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-3.5 shadow-2xs active:bg-gray-50"
               accessibilityLabel="Negar acesso"
               accessibilityRole="button"
             >
               <ShieldX color={colors.neutral.subtle} size={18} />
-              <Text className="text-sm font-semibold text-slate-700">Negar Acesso</Text>
+              <Text className="text-sm font-semibold text-gray-700">Negar Acesso</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -226,4 +226,5 @@ export default function AutorizacaoScreen() {
     </SafeAreaView>
   );
 }
+
 

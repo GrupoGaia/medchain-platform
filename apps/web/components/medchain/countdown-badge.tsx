@@ -1,5 +1,6 @@
 import { Clock, ShieldCheck } from "lucide-react";
 import { formatMinutesRemaining } from "@medchain/domain";
+import { colors } from "@medchain/ui-tokens";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -20,19 +21,19 @@ export function CountdownBadge({ minutesRemaining, totalMinutes, className }: Co
     ? "text-rose-700"
     : isWarning
     ? "text-amber-700"
-    : "text-teal-700";
+    : "text-primary-700";
 
   const barColor = isCritical
     ? "bg-rose-500"
     : isWarning
     ? "bg-amber-500"
-    : "bg-teal-500";
+    : "bg-primary-500";
 
   const trackColor = isCritical
     ? "bg-rose-100"
     : isWarning
     ? "bg-amber-100"
-    : "bg-teal-100";
+    : "bg-primary-100";
 
   return (
     <div className={cn("w-full max-w-[180px] space-y-1.5", className)}>
@@ -77,23 +78,26 @@ export function CountdownRing({
   const isWarning = safeMinutes <= 30 && safeMinutes > 15;
   const isCritical = safeMinutes <= 15;
 
+  // O SVG recebe cor por atributo, entao aqui nao da para usar classe do
+  // Tailwind. Os tons de marca vem dos tokens; os de alerta ainda sao literais,
+  // porque os tokens de alerta tem outro valor e trocar mudaria a cor.
   const strokeColor = isCritical
     ? "#F43F5E" // rose-500
     : isWarning
     ? "#F59E0B" // amber-500
-    : "#0D9488"; // teal-600
+    : colors.brand[600];
 
   const trackColor = isCritical
     ? "#FFE4E6" // rose-100
     : isWarning
     ? "#FEF3C7" // amber-100
-    : "#CCFBF1"; // teal-100
+    : colors.brand[100];
 
   const textColor = isCritical
     ? "text-rose-700"
     : isWarning
     ? "text-amber-700"
-    : "text-teal-800";
+    : "text-primary-800";
 
   return (
     <div className={cn("relative flex shrink-0 items-center justify-center", className)} style={{ width: size, height: size }}>
@@ -156,7 +160,7 @@ export function CountdownCard({
     ? "border-rose-200 bg-gradient-to-r from-rose-50/70 via-white to-white"
     : isWarning
     ? "border-amber-200 bg-gradient-to-r from-amber-50/70 via-white to-white"
-    : "border-teal-200 bg-gradient-to-r from-teal-50/70 via-white to-white";
+    : "border-primary-200 bg-gradient-to-r from-primary-50/70 via-white to-white";
 
   return (
     <Card className={cn("overflow-hidden border shadow-sm transition-all", cardBorder, className)}>
@@ -166,11 +170,11 @@ export function CountdownCard({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-1 text-sm font-semibold text-foreground">
-                <ShieldCheck size={16} className="text-teal-600" />
+                <ShieldCheck size={16} className="text-primary-600" />
                 Acesso Temporário Ativo
               </span>
               {scopeLabel && (
-                <span className="rounded-md bg-teal-100/70 px-2 py-0.5 text-xs font-medium text-teal-800">
+                <span className="rounded-md bg-primary-100/70 px-2 py-0.5 text-xs font-medium text-primary-800">
                   {scopeLabel}
                 </span>
               )}
@@ -185,4 +189,5 @@ export function CountdownCard({
     </Card>
   );
 }
+
 

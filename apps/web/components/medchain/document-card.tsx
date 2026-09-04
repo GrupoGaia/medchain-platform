@@ -9,8 +9,8 @@ const DOC_TYPE_CONFIG = {
   EXAM: {
     icon: FlaskConical,
     label: "Exame Laboratorial",
-    iconContainer: "bg-teal-50 text-teal-700 border border-teal-200/60",
-    badge: "bg-teal-50 text-teal-800 border-teal-200",
+    iconContainer: "bg-primary-50 text-primary-700 border border-primary-200/60",
+    badge: "bg-primary-50 text-primary-800 border-primary-200",
   },
   REPORT: {
     icon: FileText,
@@ -80,4 +80,5 @@ export function DocumentCard({ id, title, type, mimeType, issuedAt, results }: D
     </Card>
   );
 }
+
 

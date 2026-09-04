@@ -285,7 +285,7 @@ export default async function ProntuarioPage({
           <Card className="border border-slate-200/80 bg-white shadow-xs">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
-                <User size={18} className="text-teal-600" />
+                <User size={18} className="text-primary-600" />
                 Dados do paciente
               </CardTitle>
             </CardHeader>
@@ -452,3 +452,4 @@ export default async function ProntuarioPage({
     </div>
   );
 }
+

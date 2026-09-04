@@ -53,13 +53,13 @@ export default function InicioScreen() {
   const initials = profile ? getInitials(profile.fullName) : "...";
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50">
+    <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
         {/* Header */}
         <View className="mb-6 flex-row items-center justify-between">
           <View>
-            <Text className="text-2xl font-bold text-slate-900">Olá, {firstName}</Text>
-            <Text className="text-xs font-medium text-slate-500">Seus dados de saúde estão protegidos</Text>
+            <Text className="text-2xl font-bold text-gray-900">Olá, {firstName}</Text>
+            <Text className="text-xs font-medium text-gray-500">Seus dados de saúde estão protegidos</Text>
           </View>
           <View className="relative">
             <View className="h-12 w-12 items-center justify-center rounded-full bg-brand-600 shadow-sm">
@@ -93,10 +93,10 @@ export default function InicioScreen() {
                 <Text className="text-[11px] font-bold uppercase tracking-wider text-amber-900">
                   Pedido de acesso pendente
                 </Text>
-                <Text className="text-sm font-bold text-slate-900">
+                <Text className="text-sm font-bold text-gray-900">
                   {req.professional.fullName}
                 </Text>
-                <Text className="text-xs text-slate-600">
+                <Text className="text-xs text-gray-600">
                   {req.professional.specialty} · {req.professional.institution?.name ?? ""}
                 </Text>
               </View>
@@ -110,7 +110,7 @@ export default function InicioScreen() {
         {/* Acessos ativos */}
         {activeTokens.length > 0 && (
           <View className="mb-2">
-            <Text className="mb-3 text-sm font-bold uppercase tracking-wider text-slate-500">
+            <Text className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">
               Acessos ativos no momento
             </Text>
             {activeTokens.map((token) => {
@@ -126,30 +126,30 @@ export default function InicioScreen() {
               return (
                 <View
                   key={token.id}
-                  className="mb-3.5 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs"
+                  className="mb-3.5 rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs"
                 >
                   <View className="mb-2 flex-row items-center justify-between">
                     <View className="flex-row items-center gap-1.5">
                       <View className="h-2 w-2 rounded-full bg-emerald-500" />
-                      <Text className="text-xs font-bold uppercase tracking-wider text-teal-800">
+                      <Text className="text-xs font-bold uppercase tracking-wider text-brand-800">
                         Acesso ativo
                       </Text>
                     </View>
-                    <View className="rounded-full border border-teal-200/80 bg-teal-50 px-2.5 py-0.5">
-                      <Text className="text-xs font-bold text-teal-800">
+                    <View className="rounded-full border border-brand-200/80 bg-brand-50 px-2.5 py-0.5">
+                      <Text className="text-xs font-bold text-brand-800">
                         {formatMinutesRemaining(leftMin)} restantes
                       </Text>
                     </View>
                   </View>
-                  <Text className="text-base font-bold text-slate-900">
+                  <Text className="text-base font-bold text-gray-900">
                     {token.professional.fullName}
                   </Text>
-                  <Text className="text-xs text-slate-500">
+                  <Text className="text-xs text-gray-500">
                     {token.professional.institution?.name ?? "Instituição de Saúde"}
                   </Text>
 
                   {/* Barra de progresso visual */}
-                  <View className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  <View className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
                     <View
                       className="h-full rounded-full bg-brand-600"
                       style={{ width: `${progress}%` }}
@@ -159,10 +159,10 @@ export default function InicioScreen() {
                   <View className="mt-3.5 flex-row gap-2">
                     <TouchableOpacity
                       onPress={() => router.push("/(tabs)/permissoes")}
-                      className="flex-1 rounded-xl border border-slate-200 py-2.5 active:bg-slate-50"
+                      className="flex-1 rounded-xl border border-gray-200 py-2.5 active:bg-gray-50"
                       accessibilityLabel="Ver detalhes do acesso"
                     >
-                      <Text className="text-center text-xs font-semibold text-slate-700">
+                      <Text className="text-center text-xs font-semibold text-gray-700">
                         Ver detalhes
                       </Text>
                     </TouchableOpacity>
@@ -183,38 +183,38 @@ export default function InicioScreen() {
         )}
 
         {activeTokens.length === 0 && pendingRequests.length === 0 && (
-          <View className="mb-5 items-center rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
-            <View className="mb-2.5 h-12 w-12 items-center justify-center rounded-full bg-teal-50">
+          <View className="mb-5 items-center rounded-2xl border border-gray-200/80 bg-white p-6 shadow-xs">
+            <View className="mb-2.5 h-12 w-12 items-center justify-center rounded-full bg-brand-50">
               <Shield color={colors.brand[600]} size={24} />
             </View>
-            <Text className="text-sm font-bold text-slate-900">Seus dados estão protegidos</Text>
-            <Text className="mt-0.5 text-center text-xs text-slate-500">
+            <Text className="text-sm font-bold text-gray-900">Seus dados estão protegidos</Text>
+            <Text className="mt-0.5 text-center text-xs text-gray-500">
               Nenhum médico possui acesso ativo ao seu prontuário neste momento.
             </Text>
           </View>
         )}
 
         {/* Documentos recentes */}
-        <Text className="mb-3 text-sm font-bold uppercase tracking-wider text-slate-500">
+        <Text className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-500">
           Documentos recentes
         </Text>
         {recentDocs.length === 0 && (
-          <Text className="text-xs text-slate-400">Nenhum documento encontrado</Text>
+          <Text className="text-xs text-gray-400">Nenhum documento encontrado</Text>
         )}
         {recentDocs.map((doc) => (
           <TouchableOpacity
             key={doc.id}
             onPress={() => openDocument(doc.id)}
-            className="mb-2 flex-row items-center rounded-xl border border-slate-200/70 bg-white p-3.5 shadow-2xs active:bg-slate-50"
+            className="mb-2 flex-row items-center rounded-xl border border-gray-200/70 bg-white p-3.5 shadow-2xs active:bg-gray-50"
             accessibilityLabel={`Abrir ${doc.title}, ${formatDate(doc.issuedAt)}`}
             accessibilityRole="button"
           >
-            <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
+            <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
               <FileText color={colors.brand[700]} size={20} />
             </View>
             <View className="flex-1">
-              <Text className="text-sm font-semibold text-slate-900">{doc.title}</Text>
-              <Text className="text-xs text-slate-400">{formatDate(doc.issuedAt)}</Text>
+              <Text className="text-sm font-semibold text-gray-900">{doc.title}</Text>
+              <Text className="text-xs text-gray-400">{formatDate(doc.issuedAt)}</Text>
             </View>
           </TouchableOpacity>
         ))}
@@ -222,3 +222,4 @@ export default function InicioScreen() {
     </SafeAreaView>
   );
 }
+

@@ -96,7 +96,7 @@ export default async function DashboardPage() {
                   const minutesRemaining = token.validation.valid ? token.validation.minutesRemaining : 0;
                   const totalMinutes = tokenTotalMinutes(token);
                   return (
-                    <Card key={token.id} className="border border-slate-200/80 bg-white shadow-xs transition-all duration-200 hover:border-teal-200 hover:shadow-sm">
+                    <Card key={token.id} className="border border-slate-200/80 bg-white shadow-xs transition-all duration-200 hover:border-primary-200 hover:shadow-sm">
                       <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-3.5">
                           <Image
@@ -104,7 +104,7 @@ export default async function DashboardPage() {
                             alt={token.patient.fullName}
                             width={44}
                             height={44}
-                            className="rounded-full border border-teal-200/70 bg-muted object-cover shadow-2xs"
+                            className="rounded-full border border-primary-200/70 bg-muted object-cover shadow-2xs"
                           />
                           <div className="space-y-0.5">
                             <p className="font-semibold text-slate-900">{token.patient.fullName}</p>
@@ -199,3 +199,4 @@ export default async function DashboardPage() {
     </div>
   );
 }
+
