@@ -1,4 +1,6 @@
-import { LogOut } from "lucide-react";
+"use client";
+
+import { LogOut, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,44 +14,65 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 interface UserMenuProps {
   name: string;
   subtitle?: string;
+  institution?: string;
   onLogout: () => void;
 }
 
-export function UserMenu({ name, subtitle, onLogout }: UserMenuProps) {
-  const initials = name
-    .split(" ")
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
+export function initialsFrom(name: string): string {
+  const parts = name.split(" ").filter(Boolean);
+  if (parts.length === 0) return "?";
+  const first = parts[0][0] ?? "";
+  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
+  return `${first}${last}`.toUpperCase();
+}
+
+export function UserMenu({
+  name,
+  subtitle,
+  institution,
+  onLogout,
+}: UserMenuProps) {
+  const initials = initialsFrom(name);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="ghost" className="h-auto gap-3 px-2 py-1.5 hover:bg-muted">
-            <div className="hidden text-right md:block">
-              <p className="text-sm font-medium leading-tight text-foreground">{name}</p>
-              {subtitle && (
-                <p className="text-xs leading-tight text-muted-foreground">{subtitle}</p>
-              )}
-            </div>
-            <Avatar className="h-9 w-9 border border-border">
-              <AvatarFallback className="bg-primary-50 text-xs font-medium text-primary">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 gap-2 pl-1.5 pr-2"
+            aria-label={`Conta de ${name}`}
+          />
         }
-      />
+      >
+        <Avatar size="sm">
+          <AvatarFallback>{initials}</AvatarFallback>
+        </Avatar>
+        <span className="hidden max-w-[10rem] truncate text-label font-medium text-foreground md:inline">
+          {name}
+        </span>
+        <ChevronDown size={14} className="text-muted-foreground" />
+      </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-56">
-        <div className="px-2 py-1.5 md:hidden">
-          <p className="text-sm font-medium text-foreground">{name}</p>
-          {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+      <DropdownMenuContent align="end" className="w-64">
+        <div className="px-2 py-1.5">
+          <p className="truncate text-label font-semibold text-foreground">
+            {name}
+          </p>
+          {subtitle && (
+            <p className="truncate text-caption text-muted-foreground">
+              {subtitle}
+            </p>
+          )}
+          {institution && (
+            <p className="mt-0.5 truncate text-caption text-muted-foreground">
+              {institution}
+            </p>
+          )}
         </div>
-        <DropdownMenuSeparator className="md:hidden" />
-        <DropdownMenuItem onClick={onLogout} className="gap-2 text-destructive focus:text-destructive">
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onLogout} variant="destructive" className="gap-2">
           <LogOut size={16} />
           Sair
         </DropdownMenuItem>

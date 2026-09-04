@@ -1,16 +1,20 @@
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { PublicHeader } from "@/components/medchain/public-header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Logo } from "@/components/medchain/logo";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, AlertCircle, ShieldCheck, Lock } from "lucide-react";
+import {
+  ArrowLeft,
+  AlertCircle,
+  ShieldCheck,
+  Clock,
+  FileCheck,
+  Lock,
+} from "lucide-react";
 
 async function signIn(formData: FormData) {
   "use server";
@@ -30,6 +34,24 @@ const DEMO_USERS = [
   { label: "Endocrinologia", email: "paulo.mendes@medchain.demo" },
 ];
 
+const GUARANTEES = [
+  {
+    icon: ShieldCheck,
+    title: "Autorização do paciente",
+    description: "Nenhum prontuário abre sem aprovação explícita de quem é dono do dado.",
+  },
+  {
+    icon: Clock,
+    title: "Acesso com prazo",
+    description: "Cada autorização vira um token que expira sozinho no tempo combinado.",
+  },
+  {
+    icon: FileCheck,
+    title: "Auditoria integral",
+    description: "Solicitação, aprovação e cada abertura ficam registradas para o paciente.",
+  },
+];
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -38,103 +60,142 @@ export default async function LoginPage({
   const { error } = await searchParams;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-white">
-      <PublicHeader />
+    <div className="grid min-h-screen lg:grid-cols-2">
+      {/* Painel de contexto. Só a partir de lg: em telas menores o formulário
+          é a única coisa que interessa. */}
+      <aside className="relative hidden flex-col justify-between bg-surface-inverse p-10 text-white lg:flex">
+        <Logo size="md" className="[&_span:last-child]:text-white" />
 
-      <main className="flex min-h-screen flex-col items-center justify-center px-4 py-24 lg:flex-row lg:gap-12">
-        <div className="relative mb-8 hidden max-w-sm lg:block">
-          <div className="absolute -inset-4 rounded-3xl bg-primary/5 blur-2xl" />
-          <Image
-            src="/img/security-shield.png"
-            alt="Escudo de segurança representando proteção de dados médicos"
-            width={400}
-            height={320}
-            className="relative rounded-2xl border bg-white object-cover shadow-xl"
-            priority
-          />
+        <div className="max-w-md">
+          <h2 className="text-display text-white">
+            Prontuários abertos com a autorização de quem é dono deles.
+          </h2>
+          <ul className="mt-8 space-y-5">
+            {GUARANTEES.map((item) => {
+              const Icon = item.icon;
+              return (
+                <li key={item.title} className="flex gap-3">
+                  <span
+                    aria-hidden
+                    className="flex size-8 shrink-0 items-center justify-center rounded-md bg-white/10 text-primary-300"
+                  >
+                    <Icon size={16} />
+                  </span>
+                  <div>
+                    <p className="text-label font-semibold text-white">{item.title}</p>
+                    <p className="mt-0.5 text-body-sm leading-relaxed text-white/70">
+                      {item.description}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         </div>
 
-        <Card className="w-full max-w-md border shadow-lg">
-          <CardContent className="p-8">
-            <Link
-              href="/"
-              className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
-            >
-              <ArrowLeft size={16} />
-              Voltar
-            </Link>
+        <p className="text-caption text-white/50">
+          MedChain · Plataforma de prontuário com soberania do paciente
+        </p>
+      </aside>
 
-            <div className="mb-6">
-              <Logo size="md" />
+      <main className="flex flex-col justify-center px-4 py-10 sm:px-8">
+        <div className="mx-auto w-full max-w-sm">
+          <Link
+            href="/"
+            className="mb-8 inline-flex items-center gap-1.5 rounded-md text-label font-medium text-muted-foreground transition-colors duration-fast hover:text-foreground"
+          >
+            <ArrowLeft size={15} aria-hidden />
+            Voltar ao início
+          </Link>
+
+          <div className="lg:hidden">
+            <Logo size="md" />
+          </div>
+
+          <h1 className="mt-6 text-page-title text-foreground lg:mt-0">
+            Entrar no portal médico
+          </h1>
+          <p className="mt-1 text-body text-foreground-secondary">
+            Use o e-mail e a senha do seu cadastro profissional.
+          </p>
+
+          {error && (
+            <Alert variant="danger" icon={<AlertCircle />} className="mt-5">
+              <AlertTitle>
+                {error === "required"
+                  ? "Preencha e-mail e senha"
+                  : "Não foi possível entrar"}
+              </AlertTitle>
+              <AlertDescription>
+                {error === "required"
+                  ? "Os dois campos são obrigatórios."
+                  : "E-mail ou senha incorretos. Verifique e tente de novo."}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <form action={signIn} className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                name="email"
+                required
+                autoComplete="email"
+                placeholder="seu@email.com"
+              />
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                name="password"
+                required
+                autoComplete="current-password"
+                placeholder="••••••••"
+              />
+            </div>
+            <button
+              type="submit"
+              className={cn(buttonVariants({ size: "lg" }), "w-full justify-center")}
+            >
+              <Lock aria-hidden />
+              Entrar com segurança
+            </button>
+          </form>
 
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              Entrar como médico
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Acesse o portal com seu email e senha.
-            </p>
-
-            {error && (
-              <Alert variant="destructive" className="mt-5">
-                <AlertCircle size={16} />
-                <AlertDescription>
-                  {error === "required" ? "Preencha email e senha." : "Email ou senha incorretos."}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <form action={signIn} className="mt-6 space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  name="email"
-                  required
-                  autoComplete="email"
-                  placeholder="seu@email.com"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  name="password"
-                  required
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                />
-              </div>
-              <button type="submit" className={cn(buttonVariants(), "w-full")}>
-                <Lock size={16} className="mr-2" />
-                Entrar com segurança
-              </button>
-            </form>
-
-            <div className="mt-6 rounded-lg border border-primary-100 bg-primary-50/50 p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium text-primary">
-                <ShieldCheck size={16} />
-                Ambiente de demonstração
-              </div>
-              <p className="mb-3 text-xs text-muted-foreground">
-                Use uma das contas abaixo. Todas têm a senha:
-              </p>
-              <code className="mb-3 block rounded bg-white px-2 py-1 text-center text-xs font-semibold text-foreground">
+          <section
+            aria-labelledby="ambiente-demo"
+            className="mt-8 rounded-xl border border-border bg-surface-subtle p-4"
+          >
+            <h2
+              id="ambiente-demo"
+              className="flex items-center gap-2 text-label font-semibold text-foreground"
+            >
+              <ShieldCheck size={15} aria-hidden className="text-primary-700" />
+              Ambiente de demonstração
+            </h2>
+            <p className="mt-1 text-caption text-muted-foreground">
+              Todas as contas abaixo usam a senha{" "}
+              <code className="rounded bg-surface px-1 py-0.5 font-mono text-caption font-semibold text-foreground">
                 medchain123
               </code>
-              <ul className="space-y-1.5">
-                {DEMO_USERS.map((u) => (
-                  <li key={u.email} className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-foreground">{u.label}</span>
-                    <span className="font-mono text-muted-foreground">{u.email}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
+            </p>
+            <ul className="mt-3 space-y-1.5">
+              {DEMO_USERS.map((user) => (
+                <li
+                  key={user.email}
+                  className="flex flex-wrap items-baseline justify-between gap-x-3 text-caption"
+                >
+                  <span className="font-medium text-foreground">{user.label}</span>
+                  <span className="font-mono text-muted-foreground">{user.email}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
       </main>
     </div>
   );

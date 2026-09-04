@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -6,32 +5,42 @@ import { requireDoctor } from "@/lib/session";
 import {
   scopeAllowsDocumentType,
   tokenTotalMinutes,
+  formatCpf,
   SCOPE_LABEL,
   validateToken,
 } from "@medchain/domain";
-import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsList, TabsPanel, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/medchain/page-header";
+import { SectionHeader } from "@/components/medchain/section-header";
 import { EmptyState } from "@/components/medchain/empty-state";
-import { DocumentCard } from "@/components/medchain/document-card";
-import { CountdownCard } from "@/components/medchain/countdown-badge";
-import { BlockedDocumentsCard } from "@/components/medchain/blocked-documents-card";
+import { AllergyAlert } from "@/components/medchain/allergy-alert";
+import { InfoList } from "@/components/medchain/info-list";
+import {
+  DocumentTable,
+  documentTypeLabel,
+  type DocumentRowData,
+} from "@/components/medchain/document-table";
+import { PatientContextHeader } from "@/components/medchain/patient-context-header";
+import { WithheldScopeNotice } from "@/components/medchain/withheld-scope-notice";
+import {
+  ActivityTimeline,
+  type ActivityEvent,
+} from "@/components/medchain/activity-timeline";
 import { buildAccessRevocationLogData } from "@/lib/audit-log";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
   FileText,
   ShieldOff,
-  User,
   Droplet,
   AlertTriangle,
   Activity,
-  FlaskConical,
+  Pill,
+  Phone,
   History,
-  Calendar,
 } from "lucide-react";
 
 async function revokeToken(formData: FormData) {
@@ -80,60 +89,37 @@ async function revokeToken(formData: FormData) {
 // quem estava por tras de um id.
 function UnauthorizedRecord({ hadToken = false }: { hadToken?: boolean }) {
   return (
-    <div className="space-y-6">
-      <PageHeader title="Prontuário protegido" description="Sem autorização ativa">
-        <Link
-          href="/medico/dashboard"
-          className={cn(buttonVariants({ variant: "outline" }), "gap-1.5")}
-        >
-          <ArrowLeft size={16} />
-          Voltar
-        </Link>
-      </PageHeader>
+    <div>
+      <PageHeader
+        title="Prontuário protegido"
+        eyebrow="Acesso temporário"
+        description="Este prontuário só abre enquanto houver uma autorização válida do paciente."
+        backHref="/medico/dashboard"
+        backLabel="Voltar ao dashboard"
+      />
 
-      <Alert variant="destructive" className="border-destructive/50">
-        <ShieldOff size={18} />
+      <Alert variant="danger" icon={<ShieldOff />} className="max-w-2xl">
         <AlertTitle>Acesso não autorizado</AlertTitle>
-        <AlertDescription className="flex flex-col gap-3">
+        <AlertDescription>
           {hadToken
-            ? "O token para este paciente expirou ou foi revogado."
-            : "Você não possui um token ativo para este paciente."}
+            ? "A autorização para este paciente expirou ou foi encerrada. Nenhum dado do prontuário é exibido sem token válido."
+            : "Você não possui uma autorização ativa para este paciente. Nenhum dado do prontuário é exibido sem token válido."}
+        </AlertDescription>
+        <div className="pt-2">
           <Link
             href="/medico/solicitar"
-            className={cn(buttonVariants({ variant: "destructive", size: "sm" }), "w-fit")}
+            className={cn(buttonVariants({ size: "sm" }))}
           >
             Solicitar novo acesso
           </Link>
-        </AlertDescription>
+        </div>
       </Alert>
     </div>
   );
 }
 
-interface InfoItemProps {
-  icon: React.ElementType;
-  label: string;
-  value: React.ReactNode;
-  highlight?: boolean;
-}
-
-function InfoItem({ icon: Icon, label, value, highlight }: InfoItemProps) {
-  return (
-    <div className="flex items-start gap-3">
-      <div
-        className={cn(
-          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-          highlight ? "bg-primary-100 text-primary" : "bg-muted text-muted-foreground"
-        )}
-      >
-        <Icon size={16} />
-      </div>
-      <div>
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium text-foreground">{value}</p>
-      </div>
-    </div>
-  );
+function listOrFallback(values: string[], fallback: string): string {
+  return values.length > 0 ? values.join(", ") : fallback;
 }
 
 export default async function ProntuarioPage({
@@ -151,6 +137,9 @@ export default async function ProntuarioPage({
     }),
     prisma.accessToken.findMany({
       where: { professionalId: doctorId, patientId, status: "ACTIVE" },
+      // O motivo declarado na solicitacao e o que responde "por que eu tenho
+      // acesso a este prontuario" no cabecalho de contexto.
+      include: { request: { select: { reason: true } } },
     }),
     prisma.medicalDocument.findMany({
       where: { patientId },
@@ -202,254 +191,211 @@ export default async function ProntuarioPage({
     })
     .catch(() => {});
 
-  const typeLabel: Record<string, string> = {
-    EXAM: "Exames",
-    REPORT: "Laudos",
-    PRESCRIPTION: "Receitas",
-    IMAGING: "Imagens",
-  };
-
   const visibleDocuments = documents.filter((doc) =>
     validTokens.some((t) => scopeAllowsDocumentType(t.scope, doc.type))
   );
 
   // Retido precisa refletir documento real que existe e foi filtrado, nao o
   // que o escopo abstratamente esconderia. Um paciente sem documento nenhum
-  // nao pode acionar o cartao bloqueado so porque o escopo e restrito.
-  const hiddenDocumentTypes = Array.from(
+  // nao pode acionar o aviso de bloqueio so porque o escopo e restrito.
+  const withheld = Array.from(
     new Set(
       documents
         .filter((doc) => !validTokens.some((t) => scopeAllowsDocumentType(t.scope, doc.type)))
-        .map((doc) => doc.type)
+        .map((doc) => documentTypeLabel(doc.type))
     )
   );
-  const withheld = hiddenDocumentTypes.map((type) => typeLabel[type] ?? type);
 
-  const groupedDocuments = visibleDocuments.reduce<Record<string, typeof documents>>(
-    (acc, doc) => {
-      if (!acc[doc.type]) acc[doc.type] = [];
-      acc[doc.type].push(doc);
-      return acc;
-    },
-    {}
-  );
+  const documentRows: DocumentRowData[] = visibleDocuments.map((doc) => ({
+    id: doc.id,
+    title: doc.title,
+    type: doc.type,
+    mimeType: doc.mimeType,
+    issuedAt: doc.issuedAt,
+    results: doc.results,
+  }));
 
-  const documentTypes = Object.keys(groupedDocuments).sort();
+  const accessHistory: ActivityEvent[] = logs.map((log) => ({
+    id: log.id,
+    eventType: log.eventType,
+    timestamp: formatDateTime(log.createdAt),
+    isoTimestamp: log.createdAt.toISOString(),
+  }));
+
+  const identifiers = [
+    patient.cpf ? `CPF ${formatCpf(patient.cpf)}` : null,
+    patient.birthDate ? `Nascimento ${formatDate(patient.birthDate)}` : null,
+    patient.gender,
+  ].filter((value): value is string => Boolean(value));
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={patient.fullName} description="Prontuário do paciente">
-        <div className="flex items-center gap-3">
-          <Image
-            src="/img/patient-avatar-joao.png"
-            alt={patient.fullName}
-            width={48}
-            height={48}
-            className="rounded-full border bg-muted object-cover"
-          />
-          <Link
-            href="/medico/dashboard"
-            className={cn(buttonVariants({ variant: "outline" }), "gap-1.5")}
-          >
-            <ArrowLeft size={16} />
-            Voltar
-          </Link>
-        </div>
-      </PageHeader>
+    <div className="space-y-5">
+      <Link
+        href="/medico/dashboard"
+        className="inline-flex items-center gap-1.5 rounded-md text-label font-medium text-muted-foreground transition-colors duration-fast hover:text-foreground"
+      >
+        <ArrowLeft size={15} aria-hidden />
+        Voltar ao dashboard
+      </Link>
 
-      <CountdownCard
+      <PatientContextHeader
+        patientName={patient.fullName}
+        identifiers={identifiers}
+        scopeLabel={SCOPE_LABEL[activeToken.scope]}
+        reason={activeToken.request?.reason}
+        expiresAtFormatted={formatDateTime(activeToken.expiresAt)}
         minutesRemaining={minutesRemaining}
         totalMinutes={tokenTotalMinutes(activeToken)}
-        expiresAtFormatted={formatDateTime(activeToken.expiresAt)}
-        scopeLabel={SCOPE_LABEL[activeToken.scope]}
-      >
-        <form action={revokeToken} className="flex">
-          {validTokens.map((t) => (
-            <input key={t.id} type="hidden" name="tokenId" value={t.id} />
-          ))}
-          <button
-            type="submit"
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "border-slate-200 bg-white text-rose-600 shadow-2xs hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
-            )}
+        actions={
+          <form action={revokeToken}>
+            {validTokens.map((token) => (
+              <input key={token.id} type="hidden" name="tokenId" value={token.id} />
+            ))}
+            <Button type="submit" variant="destructive-outline" size="sm">
+              <ShieldOff aria-hidden />
+              Encerrar acesso
+            </Button>
+          </form>
+        }
+      />
+
+      <div className="grid gap-5 xl:grid-cols-[20rem_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-4">
+          <AllergyAlert allergies={patient.allergies} />
+
+          <section
+            aria-labelledby="resumo-clinico"
+            className="rounded-xl border border-border bg-surface p-4"
           >
-            <ShieldOff size={14} className="mr-1.5" />
-            Encerrar acesso
-          </button>
-        </form>
-      </CountdownCard>
-
-      <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-        <div className="space-y-4">
-          <Card className="border border-slate-200/80 bg-white shadow-xs">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
-                <User size={18} className="text-primary-600" />
-                Dados do paciente
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <InfoItem icon={Droplet} label="Tipo sanguíneo" value={patient.bloodType ?? "Não informado"} />
-              <InfoItem
-                icon={AlertTriangle}
-                label="Alergias"
-                value={patient.allergies.length > 0 ? patient.allergies.join(", ") : "Nenhuma conhecida"}
-                highlight={patient.allergies.length > 0}
-              />
-              <InfoItem
-                icon={Activity}
-                label="Condições crônicas"
-                value={patient.chronicConditions.length > 0 ? patient.chronicConditions.join(", ") : "Nenhuma"}
-              />
-              <InfoItem
-                icon={FlaskConical}
-                label="Medicamentos contínuos"
-                value={patient.continuousMeds.length > 0 ? patient.continuousMeds.join(", ") : "Nenhum"}
-              />
-            </CardContent>
-          </Card>
-
-          {patient.allergies.length > 0 && (
-            <div className="overflow-hidden rounded-xl border border-rose-200/90 bg-gradient-to-br from-rose-50/90 via-white to-rose-50/40 p-4 shadow-xs">
-              <div className="flex items-center gap-2.5 text-rose-950">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100 text-rose-700 shadow-2xs">
-                  <AlertTriangle size={17} />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-rose-900">
-                    Alerta de Emergência Clínica
-                  </h4>
-                  <p className="text-xs text-rose-700">Alergias severas conhecidas</p>
-                </div>
-              </div>
-              <div className="mt-3.5 flex flex-wrap gap-1.5">
-                {patient.allergies.map((allergy) => (
-                  <span
-                    key={allergy}
-                    className="inline-flex items-center rounded-md border border-rose-200 bg-rose-100/90 px-2.5 py-1 text-xs font-bold text-rose-900 shadow-2xs"
-                  >
-                    {allergy}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+            <SectionHeader
+              id="resumo-clinico"
+              as="h2"
+              title="Resumo clínico"
+              className="mb-3"
+            />
+            <InfoList
+              items={[
+                {
+                  icon: Droplet,
+                  label: "Tipo sanguíneo",
+                  value: patient.bloodType ?? "Não informado",
+                },
+                {
+                  icon: AlertTriangle,
+                  label: "Alergias",
+                  value: listOrFallback(patient.allergies, "Nenhuma registrada"),
+                  emphasis: patient.allergies.length > 0,
+                },
+                {
+                  icon: Activity,
+                  label: "Condições crônicas",
+                  value: listOrFallback(
+                    patient.chronicConditions,
+                    "Nenhuma registrada"
+                  ),
+                },
+                {
+                  icon: Pill,
+                  label: "Medicamentos contínuos",
+                  value: listOrFallback(patient.continuousMeds, "Nenhum registrado"),
+                },
+              ]}
+            />
+          </section>
 
           {patient.emergencyContacts.length > 0 && (
-            <Card className="border shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <User size={16} className="text-primary" />
-                  Contatos de emergência
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <section
+              aria-labelledby="contatos-emergencia"
+              className="rounded-xl border border-border bg-surface p-4"
+            >
+              <SectionHeader
+                id="contatos-emergencia"
+                as="h2"
+                title="Contatos de emergência"
+                className="mb-3"
+              />
+              <ul className="divide-y divide-border-subtle">
                 {patient.emergencyContacts.map((contact) => (
-                  <div key={contact.id} className="text-sm">
-                    <p className="font-medium text-foreground">{contact.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {contact.relation} · {contact.phone}
-                    </p>
-                  </div>
+                  <li key={contact.id} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <span
+                      aria-hidden
+                      className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground"
+                    >
+                      <Phone size={14} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-body font-medium text-foreground">
+                        {contact.name}
+                      </p>
+                      <p className="truncate text-caption text-muted-foreground">
+                        {contact.relation} · {contact.phone}
+                      </p>
+                    </div>
+                  </li>
                 ))}
-              </CardContent>
-            </Card>
+              </ul>
+            </section>
           )}
         </div>
 
-        <div className="space-y-6">
-          <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold tracking-tight text-foreground">Documentos</h2>
-              <Badge variant="secondary">{visibleDocuments.length}</Badge>
-            </div>
-
-            {visibleDocuments.length === 0 ? (
-              withheld.length > 0 ? (
-                <BlockedDocumentsCard withheld={withheld} />
-              ) : (
-                <div className="flex flex-col items-center rounded-2xl border bg-white p-8 text-center shadow-sm">
-                  <Image
-                    src="/img/empty-state-documents.png"
-                    alt="Nenhum documento cadastrado"
-                    width={240}
-                    height={192}
-                    className="mb-4 rounded-xl object-cover"
-                  />
-                  <EmptyState
-                    icon={FileText}
-                    title="Nenhum documento cadastrado"
-                    description="O paciente ainda não possui documentos no prontuário."
-                  />
-                </div>
-              )
-            ) : (
-              <div className="space-y-6">
-                {documentTypes.map((type) => (
-                  <div key={type} className="space-y-3">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                      {typeLabel[type] ?? type}
-                    </h3>
-                    <div className="space-y-3">
-                      {groupedDocuments[type].map((doc) => (
-                        <DocumentCard
-                          key={doc.id}
-                          id={doc.id}
-                          title={doc.title}
-                          type={doc.type}
-                          mimeType={doc.mimeType}
-                          issuedAt={doc.issuedAt}
-                          results={doc.results}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                <BlockedDocumentsCard withheld={withheld} />
-              </div>
-            )}
-          </section>
-
-          <section className="space-y-4">
-            <div className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
-              <History size={18} className="text-primary" />
+        <Tabs defaultValue="documentos" className="min-w-0">
+          <TabsList>
+            <TabsTrigger value="documentos">
+              <FileText aria-hidden />
+              Documentos
+              <span className="rounded-md bg-secondary px-1.5 text-caption tabular-nums text-foreground-secondary">
+                {documentRows.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="historico">
+              <History aria-hidden />
               Histórico de acessos
-            </div>
-            {logs.length === 0 ? (
-              <Card className="border shadow-sm">
-                <CardContent className="p-5 text-sm text-muted-foreground">
-                  Nenhum acesso registrado.
-                </CardContent>
-              </Card>
+              <span className="rounded-md bg-secondary px-1.5 text-caption tabular-nums text-foreground-secondary">
+                {accessHistory.length}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsPanel value="documentos" className="space-y-4">
+            <SectionHeader
+              as="h2"
+              title="Documentos"
+              description="Ordenados do mais recente para o mais antigo. Só aparece o que o escopo autorizado libera."
+            />
+
+            <WithheldScopeNotice withheld={withheld} />
+
+            {documentRows.length > 0 ? (
+              <DocumentTable documents={documentRows} />
+            ) : withheld.length === 0 ? (
+              <EmptyState
+                icon={FileText}
+                title="Nenhum documento no prontuário"
+                description="O paciente ainda não enviou exames, laudos ou receitas pelo aplicativo."
+              />
+            ) : null}
+          </TabsPanel>
+
+          <TabsPanel value="historico" className="space-y-4">
+            <SectionHeader
+              as="h2"
+              title="Histórico de acessos"
+              description="Registro de auditoria deste prontuário, incluindo acessos de outros profissionais."
+            />
+            {accessHistory.length > 0 ? (
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <ActivityTimeline events={accessHistory} />
+              </div>
             ) : (
-              <Card className="border shadow-sm">
-                <CardContent className="divide-y p-0">
-                  {logs.map((log) => (
-                    <div key={log.id} className="flex items-center justify-between px-5 py-3">
-                      <div className="flex items-center gap-3">
-                        <Calendar size={16} className="text-muted-foreground" />
-                        <span className="text-sm text-foreground">
-                          {log.eventType === "ACCESS" && "Acesso ao prontuário"}
-                          {log.eventType === "APPROVE" && "Acesso aprovado"}
-                          {log.eventType === "REVOKE" && "Acesso encerrado"}
-                          {log.eventType === "DENY" && "Acesso negado"}
-                          {log.eventType === "CONTACT_APPROVE" && "Contato de emergência aceito"}
-                          {log.eventType === "CONTACT_DENY" && "Contato de emergência recusado"}
-                        </span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDateTime(log.createdAt)}
-                      </span>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+              <EmptyState
+                icon={History}
+                title="Nenhum acesso registrado"
+                description="Os eventos de auditoria deste prontuário aparecerão aqui."
+              />
             )}
-          </section>
-        </div>
+          </TabsPanel>
+        </Tabs>
       </div>
     </div>
   );
 }
-

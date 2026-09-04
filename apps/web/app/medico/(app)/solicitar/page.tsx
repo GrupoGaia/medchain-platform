@@ -3,9 +3,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireDoctor } from "@/lib/session";
 import { CreateAccessRequestSchema } from "@medchain/api-contract";
-import { ACCESS_SCOPES, SCOPE_LABEL } from "@medchain/domain";
 import { buttonVariants } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { Label, FieldDescription } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -14,12 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PageHeader } from "@/components/medchain/page-header";
 import { PatientSearch } from "./patient-search";
+import { ScopeField } from "./scope-field";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, AlertCircle, Clock, Shield, Send } from "lucide-react";
+import { AlertCircle, Send, ShieldCheck, Timer, ClipboardList } from "lucide-react";
 
 async function createRequest(formData: FormData) {
   "use server";
@@ -64,6 +63,60 @@ async function createRequest(formData: FormData) {
   redirect("/medico/dashboard");
 }
 
+// Os itens precisam ser declarados no `Select` também como mapa: o gatilho é
+// renderizado antes de o popup existir, e sem isso o campo mostraria "60" no
+// lugar de "1 hora" enquanto o usuário não abrisse a lista.
+const DURATION_ITEMS: Record<string, string> = {
+  "15": "15 minutos",
+  "30": "30 minutos",
+  "60": "1 hora",
+  "120": "2 horas",
+  "480": "8 horas",
+};
+
+const STEPS = [
+  {
+    icon: Send,
+    title: "Você envia o pedido",
+    description:
+      "O paciente ou o contato de emergência aprovado recebe a solicitação no aplicativo.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "O paciente decide",
+    description:
+      "Ele vê quem pediu, o motivo, o escopo e a duração antes de autorizar ou negar.",
+  },
+  {
+    icon: Timer,
+    title: "O acesso expira sozinho",
+    description:
+      "Ao aprovar, um token temporário é criado e encerra no prazo escolhido, sem ação sua.",
+  },
+];
+
+function FormSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4 border-b border-border-subtle pb-6 last:border-b-0 last:pb-0">
+      <div>
+        <h2 className="text-card-title text-foreground">{title}</h2>
+        {description && (
+          <p className="mt-0.5 text-body-sm text-muted-foreground">{description}</p>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export default async function SolicitarPage({
   searchParams,
 }: {
@@ -78,115 +131,151 @@ export default async function SolicitarPage({
   if (!doctor) redirect("/medico/login");
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <PageHeader title="Solicitar acesso ao prontuário" description="Preencha os dados abaixo para solicitar autorização do paciente.">
-        <Link href="/medico/dashboard" className={cn(buttonVariants({ variant: "outline" }), "gap-1.5")}>
-          <ArrowLeft size={16} />
-          Voltar
-        </Link>
-      </PageHeader>
+    <div>
+      <PageHeader
+        title="Solicitar acesso ao prontuário"
+        eyebrow="Nova autorização"
+        description="O acesso só existe depois que o paciente aprovar, e sempre com prazo para expirar."
+        backHref="/medico/dashboard"
+        backLabel="Voltar ao dashboard"
+      />
 
       {error && (
-        <Alert variant="destructive">
-          <AlertCircle size={16} />
-          <AlertDescription>Dados inválidos. Verifique os campos e tente novamente.</AlertDescription>
+        <Alert variant="danger" icon={<AlertCircle />} className="mb-6 max-w-3xl">
+          <AlertTitle>Não foi possível enviar a solicitação</AlertTitle>
+          <AlertDescription>
+            Confira se o paciente foi localizado pelo CPF e se o escopo e a
+            duração estão preenchidos.
+          </AlertDescription>
         </Alert>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-        <Card className="border shadow-sm">
-          <CardContent className="p-6">
-            <form action={createRequest} className="space-y-6">
-              <PatientSearch />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <form
+          action={createRequest}
+          className="min-w-0 space-y-6 rounded-xl border border-border bg-surface p-5"
+        >
+          <FormSection
+            title="Paciente"
+            description="Localize pelo CPF completo para confirmar de quem é o prontuário."
+          >
+            <PatientSearch />
+          </FormSection>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="scope">Dados solicitados *</Label>
-                <Select name="scope" required>
-                  <SelectTrigger id="scope">
-                    <SelectValue placeholder="Selecione o escopo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ACCESS_SCOPES.map((scope) => (
-                      <SelectItem key={scope} value={scope}>
-                        {SCOPE_LABEL[scope]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <FormSection
+            title="Escopo e duração"
+            description="Peça o mínimo necessário: o paciente aprova com mais facilidade e o dado exposto é menor."
+          >
+            <ScopeField />
 
-              <div className="space-y-1.5">
-                <Label htmlFor="durationMinutes">Duração do acesso *</Label>
-                <Select name="durationMinutes" defaultValue="60">
-                  <SelectTrigger id="durationMinutes">
-                    <SelectValue placeholder="Selecione a duração" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="15">15 minutos</SelectItem>
-                    <SelectItem value="30">30 minutos</SelectItem>
-                    <SelectItem value="60">1 hora</SelectItem>
-                    <SelectItem value="120">2 horas</SelectItem>
-                    <SelectItem value="480">8 horas</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="durationMinutes">
+                Duração do acesso
+                <span aria-hidden className="text-danger">
+                  *
+                </span>
+              </Label>
+              <Select
+                name="durationMinutes"
+                defaultValue="60"
+                items={DURATION_ITEMS}
+                required
+              >
+                <SelectTrigger id="durationMinutes" aria-describedby="duracao-ajuda">
+                  <SelectValue placeholder="Selecione a duração" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(DURATION_ITEMS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldDescription id="duracao-ajuda">
+                O tempo começa a contar quando o paciente aprova, e não agora.
+              </FieldDescription>
+            </div>
+          </FormSection>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="reason">
-                  Motivo <span className="text-muted-foreground">(opcional)</span>
-                </Label>
-                <Textarea
-                  id="reason"
-                  name="reason"
-                  rows={3}
-                  maxLength={500}
-                  placeholder="Ex: Consulta de retorno para avaliação cardiológica"
-                />
-              </div>
+          <FormSection
+            title="Justificativa"
+            description="Escrever o motivo aumenta bastante a chance de aprovação."
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="reason">
+                Motivo
+                <span className="font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <Textarea
+                id="reason"
+                name="reason"
+                rows={3}
+                maxLength={500}
+                aria-describedby="reason-ajuda"
+                placeholder="Ex.: consulta de retorno para avaliação cardiológica"
+              />
+              <FieldDescription id="reason-ajuda">
+                Até 500 caracteres. O paciente lê este texto na tela de
+                autorização.
+              </FieldDescription>
+            </div>
+          </FormSection>
 
-              <div className="flex flex-col-reverse gap-3 sm:flex-row">
-                <Link href="/medico/dashboard" className={cn(buttonVariants({ variant: "outline" }), "sm:flex-1")}>
-                  Cancelar
-                </Link>
-                <button type="submit" className={cn(buttonVariants(), "gap-1.5 sm:flex-1")}>
-                  <Send size={16} />
-                  Enviar solicitação
-                </button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Link
+              href="/medico/dashboard"
+              className={cn(buttonVariants({ variant: "ghost" }), "justify-center")}
+            >
+              Cancelar
+            </Link>
+            <button type="submit" className={cn(buttonVariants(), "justify-center")}>
+              <Send aria-hidden />
+              Enviar solicitação
+            </button>
+          </div>
+        </form>
 
-        <div className="hidden space-y-4 lg:block">
-          <Card className="border-primary-100 bg-primary-50/50 shadow-sm">
-            <CardContent className="p-5">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100 text-primary">
-                <Shield size={20} />
-              </div>
-              <h3 className="font-semibold text-foreground">Segurança primeiro</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                O paciente ou familiar receberá uma notificação e precisará aprovar antes do acesso ser liberado.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border shadow-sm">
-            <CardContent className="p-5">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <Clock size={20} />
-              </div>
-              <h3 className="font-semibold text-foreground">Acesso temporário</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                O token expira automaticamente após o prazo selecionado, garantindo controle do paciente.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <aside
+          aria-labelledby="como-funciona"
+          className="h-fit rounded-xl border border-border bg-surface p-4"
+        >
+          <h2
+            id="como-funciona"
+            className="flex items-center gap-2 text-card-title text-foreground"
+          >
+            <ClipboardList size={16} aria-hidden className="text-muted-foreground" />
+            O que acontece depois
+          </h2>
+          <ol className="mt-3 space-y-3">
+            {STEPS.map((step, index) => {
+              const Icon = step.icon;
+              return (
+                <li key={step.title} className="flex gap-3">
+                  <span
+                    aria-hidden
+                    className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground"
+                  >
+                    <Icon size={14} />
+                  </span>
+                  <div>
+                    <p className="text-label font-medium text-foreground">
+                      {index + 1}. {step.title}
+                    </p>
+                    <p className="mt-0.5 text-caption leading-relaxed text-muted-foreground">
+                      {step.description}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+          <p className="mt-4 border-t border-border-subtle pt-3 text-caption text-muted-foreground">
+            Toda solicitação, aprovação e abertura de prontuário fica registrada
+            em auditoria, visível para o paciente.
+          </p>
+        </aside>
       </div>
-
-      <p className="text-center text-xs text-muted-foreground lg:hidden">
-        O paciente ou familiar receberá uma notificação e precisará aprovar antes do acesso ser liberado.
-      </p>
     </div>
   );
 }

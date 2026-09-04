@@ -27,8 +27,8 @@ export default function GlobalError({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "system-ui, -apple-system, sans-serif",
-          backgroundColor: "#F9FAFB",
+          fontFamily: "Inter, system-ui, -apple-system, sans-serif",
+          backgroundColor: "#F7F8FA",
           color: "#111827",
         }}
       >
@@ -62,7 +62,7 @@ export default function GlobalError({
                 cursor: "pointer",
                 border: "none",
                 borderRadius: "0.5rem",
-                backgroundColor: "#0D9488",
+                backgroundColor: "#0F766E",
                 color: "#FFFFFF",
                 padding: "0.625rem 1.25rem",
                 fontSize: "0.875rem",
