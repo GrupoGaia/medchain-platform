@@ -41,6 +41,10 @@ function RootLayoutNav() {
           name="autorizacao/[id]"
           options={{ headerShown: false, presentation: "modal" }}
         />
+        <Stack.Screen
+          name="editar-perfil"
+          options={{ headerShown: false, presentation: "modal" }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </AppStoreProvider>

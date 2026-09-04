@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import type { AccessScope, ContactLinkStatus } from "@medchain/domain";
+import type { AccessScope, BloodType, ContactLinkStatus } from "@medchain/domain";
 import { supabase } from "./supabase";
 import { buildApiUrl } from "./api-url";
 
@@ -30,6 +30,11 @@ async function authedFetch<T>(path: string, init: RequestInit = {}): Promise<T> 
 export const api = {
   // Paciente
   getMyProfile: () => authedFetch<PatientProfileResponse>("/api/me"),
+  updateMyProfile: (input: UpdatePatientProfileInput) =>
+    authedFetch<PatientProfileResponse>("/api/me", {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
   getMyDocuments: () => authedFetch<MedicalDocumentResponse[]>("/api/me/documents"),
 
   // Solicitações (como paciente)
@@ -119,6 +124,13 @@ export interface PatientProfileResponse {
   chronicConditions: string[];
   continuousMeds: string[];
   emergencyContacts: EmergencyContactResponse[];
+}
+
+export interface UpdatePatientProfileInput {
+  bloodType: BloodType | null;
+  allergies: string[];
+  chronicConditions: string[];
+  continuousMeds: string[];
 }
 
 export type CreateUserInput =

@@ -6,8 +6,6 @@ import {
   ShieldX,
   User,
   Clock,
-  Building2,
-  Stethoscope,
   AlertTriangle,
   Check,
   X,

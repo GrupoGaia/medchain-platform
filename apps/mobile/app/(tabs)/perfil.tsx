@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
 import {
   View,
   ScrollView,
@@ -36,6 +37,7 @@ async function callContact(phone: string) {
 
 export default function PerfilScreen() {
   const { signOut } = useAuth();
+  const router = useRouter();
   const [profile, setProfile] = useState<PatientProfileResponse | null>(null);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   const [awaitingApproval, setAwaitingApproval] = useState(false);
@@ -60,9 +62,13 @@ export default function PerfilScreen() {
       });
   }, []);
 
-  useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
+  // useFocusEffect e nao useEffect: ao voltar da tela de edicao a aba nao
+  // remonta, e sem isto o perfil continuaria mostrando o valor antigo.
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [loadProfile])
+  );
 
   async function respondToLink(linkId: string, approve: boolean) {
     setRespondingTo(linkId);
@@ -264,6 +270,15 @@ export default function PerfilScreen() {
             </View>
           ))}
         </View>
+
+        <TouchableOpacity
+          onPress={() => router.push("/editar-perfil" as never)}
+          className="mb-3 items-center rounded-xl border border-gray-200 bg-white py-4"
+          accessibilityLabel="Editar perfil"
+          accessibilityRole="button"
+        >
+          <Text className="text-sm font-medium text-gray-600">Editar perfil</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           onPress={signOut}
