@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { View, ScrollView, SafeAreaView, TouchableOpacity } from "react-native";
+import { View, ScrollView, SafeAreaView, TouchableOpacity, Linking, Alert } from "react-native";
 import { SectionLabel, Text } from "../../src/components";
-import { User, AlertTriangle, Pill, ChevronRight, LogOut } from "lucide-react-native";
+import { User, AlertTriangle, Pill, Phone, LogOut } from "lucide-react-native";
 import { api, type PatientProfileResponse } from "../../src/services/api";
 import { useAuth } from "../../src/context/AuthProvider";
 import { colors } from "@medchain/ui-tokens";
@@ -14,6 +14,16 @@ function getInitials(fullName: string): string {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+// O telefone vem formatado do cadastro, com parenteses, espaco e traco. O
+// discador so aceita digitos e o prefixo internacional.
+async function callContact(phone: string) {
+  try {
+    await Linking.openURL(`tel:${phone.replace(/[^\d+]/g, "")}`);
+  } catch {
+    Alert.alert("Erro", "Não foi possível abrir o discador.");
+  }
 }
 
 export default function PerfilScreen() {
@@ -105,8 +115,10 @@ export default function PerfilScreen() {
           {contacts.map((contato, i) => (
             <View key={contato.id}>
               <TouchableOpacity
-                className="flex-row items-center gap-3 p-4"
-                accessibilityLabel={`${contato.name}, ${contato.relation}`}
+                onPress={() => callContact(contato.phone)}
+                className="flex-row items-center gap-3 p-4 active:bg-gray-50"
+                accessibilityLabel={`Ligar para ${contato.name}, ${contato.relation}`}
+                accessibilityRole="button"
               >
                 <View className="h-9 w-9 items-center justify-center rounded-full bg-gray-100">
                   <User color={colors.neutral.subtle} size={16} />
@@ -117,20 +129,12 @@ export default function PerfilScreen() {
                     {contato.relation} · {contato.phone}
                   </Text>
                 </View>
-                <ChevronRight color={colors.neutral.muted} size={16} />
+                <Phone color={colors.brand[700]} size={16} />
               </TouchableOpacity>
               {i < contacts.length - 1 && <View className="mx-4 h-px bg-gray-100" />}
             </View>
           ))}
         </View>
-
-        <TouchableOpacity
-          className="mb-3 items-center rounded-xl border border-gray-200 bg-white py-4"
-          accessibilityLabel="Editar perfil"
-          accessibilityRole="button"
-        >
-          <Text className="text-sm font-medium text-gray-600">Editar perfil</Text>
-        </TouchableOpacity>
 
         <TouchableOpacity
           onPress={signOut}

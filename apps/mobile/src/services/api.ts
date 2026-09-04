@@ -159,6 +159,7 @@ export interface AccessTokenResponse {
   id: string;
   status: string;
   scope: AccessScope;
+  createdAt: string;
   expiresAt: string;
   revokedAt: string | null;
   professional: {

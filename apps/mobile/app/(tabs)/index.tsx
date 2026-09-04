@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { View, TouchableOpacity, ScrollView, SafeAreaView } from "react-native";
-import { Card, EmptyState, Text } from "../../src/components";
+import { View, TouchableOpacity, ScrollView, SafeAreaView, Linking, Alert } from "react-native";
+import { Text } from "../../src/components";
 import { useRouter } from "expo-router";
 import { Shield, FileText, Bell } from "lucide-react-native";
 import { useAppStore } from "../../src/context/AppStore";
 import { api, type PatientProfileResponse, type MedicalDocumentResponse } from "../../src/services/api";
-import { formatMinutesRemaining } from "@medchain/domain";
+import { formatMinutesRemaining, tokenTotalMinutes } from "@medchain/domain";
 import { colors } from "@medchain/ui-tokens";
 
 function getInitials(fullName: string): string {
@@ -38,6 +38,15 @@ export default function InicioScreen() {
 
   function minutesLeft(expiresAt: string): number {
     return Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 60_000));
+  }
+
+  async function openDocument(docId: string) {
+    try {
+      const { signedUrl } = await api.getDocumentUrl(docId);
+      await Linking.openURL(signedUrl);
+    } catch {
+      Alert.alert("Erro", "Não foi possível abrir o documento.");
+    }
   }
 
   const firstName = profile?.fullName.split(" ")[0] ?? "...";
@@ -98,20 +107,6 @@ export default function InicioScreen() {
           </TouchableOpacity>
         ))}
 
-        {/* CTA principal */}
-        <TouchableOpacity
-          className="mb-5 w-full items-center rounded-2xl bg-brand-600 px-6 py-5 shadow-sm active:bg-brand-700"
-          activeOpacity={0.85}
-          accessibilityLabel="Gerar token de acesso"
-          accessibilityRole="button"
-        >
-          <View className="mb-2 h-11 w-11 items-center justify-center rounded-full bg-brand-500/50">
-            <Shield color="#fff" size={24} />
-          </View>
-          <Text className="text-base font-bold text-white">Gerar Token de Acesso</Text>
-          <Text className="mt-0.5 text-xs text-brand-100">Autorize um profissional presencialmente</Text>
-        </TouchableOpacity>
-
         {/* Acessos ativos */}
         {activeTokens.length > 0 && (
           <View className="mb-2">
@@ -120,7 +115,13 @@ export default function InicioScreen() {
             </Text>
             {activeTokens.map((token) => {
               const leftMin = minutesLeft(token.expiresAt);
-              const progress = Math.min(100, Math.max(8, Math.round((leftMin / 60) * 100)));
+              // A duracao concedida varia de 15 minutos a 8 horas. Sem dividir
+              // pelo total do proprio token, a barra so ficava certa em 60 min.
+              const totalMin = tokenTotalMinutes({
+                createdAt: new Date(token.createdAt),
+                expiresAt: new Date(token.expiresAt),
+              });
+              const progress = Math.min(100, Math.max(8, Math.round((leftMin / totalMin) * 100)));
 
               return (
                 <View
@@ -203,8 +204,10 @@ export default function InicioScreen() {
         {recentDocs.map((doc) => (
           <TouchableOpacity
             key={doc.id}
+            onPress={() => openDocument(doc.id)}
             className="mb-2 flex-row items-center rounded-xl border border-slate-200/70 bg-white p-3.5 shadow-2xs active:bg-slate-50"
-            accessibilityLabel={`${doc.title}, ${formatDate(doc.issuedAt)}`}
+            accessibilityLabel={`Abrir ${doc.title}, ${formatDate(doc.issuedAt)}`}
+            accessibilityRole="button"
           >
             <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
               <FileText color={colors.brand[700]} size={20} />
