@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "./supabase/admin";
+import { getSupabaseAdmin } from "./supabase/admin";
 import {
   buildMedicalDocumentStorageKey,
   getMedicalDocumentStorageConfig,
@@ -6,7 +6,7 @@ import {
 
 export async function ensureBucket(): Promise<void> {
   const config = getMedicalDocumentStorageConfig();
-  const { data, error } = await supabaseAdmin.storage.listBuckets();
+  const { data, error } = await getSupabaseAdmin().storage.listBuckets();
   if (error) throw new Error(`Erro ao listar buckets: ${error.message}`);
 
   const options = {
@@ -16,7 +16,7 @@ export async function ensureBucket(): Promise<void> {
   };
 
   if (data?.some((b) => b.name === config.bucket)) {
-    const { error: updateError } = await supabaseAdmin.storage.updateBucket(
+    const { error: updateError } = await getSupabaseAdmin().storage.updateBucket(
       config.bucket,
       options
     );
@@ -24,7 +24,7 @@ export async function ensureBucket(): Promise<void> {
     return;
   }
 
-  const { error: createError } = await supabaseAdmin.storage.createBucket(
+  const { error: createError } = await getSupabaseAdmin().storage.createBucket(
     config.bucket,
     options
   );
@@ -41,7 +41,7 @@ export async function uploadToStorage(
   const config = getMedicalDocumentStorageConfig();
   const storageKey = buildMedicalDocumentStorageKey(patientId, docId, mimeType);
 
-  const { error } = await supabaseAdmin.storage
+  const { error } = await getSupabaseAdmin().storage
     .from(config.bucket)
     .upload(storageKey, buffer, { contentType: mimeType, upsert: true });
 
@@ -51,15 +51,16 @@ export async function uploadToStorage(
 
 export async function deleteFromStorage(storageKey: string): Promise<void> {
   const config = getMedicalDocumentStorageConfig();
-  await supabaseAdmin.storage.from(config.bucket).remove([storageKey]);
+  await getSupabaseAdmin().storage.from(config.bucket).remove([storageKey]);
 }
 
 export async function createSignedUrl(storageKey: string, expiresIn = 60): Promise<string> {
   const config = getMedicalDocumentStorageConfig();
-  const { data, error } = await supabaseAdmin.storage
+  const { data, error } = await getSupabaseAdmin().storage
     .from(config.bucket)
     .createSignedUrl(storageKey, expiresIn);
 
   if (error || !data?.signedUrl) throw new Error("Erro ao gerar URL assinada");
   return data.signedUrl;
 }
+

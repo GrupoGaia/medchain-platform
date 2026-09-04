@@ -37,3 +37,9 @@ jobs:
 
       - name: Testes
         run: pnpm test
+
+      # Por último por ser o passo mais lento: lint, typecheck e testes dão o
+      # retorno rápido primeiro. Roda sem nenhum segredo, porque o cliente
+      # admin do Supabase passou a ser criado sob demanda e não no import.
+      - name: Build
+        run: pnpm build
