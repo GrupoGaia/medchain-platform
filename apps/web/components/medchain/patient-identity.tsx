@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { initialsFrom } from "./user-menu";
+import { initialsFrom } from "@/lib/initials";
 import { cn } from "@/lib/utils";
 
 interface PatientIdentityProps {

@@ -10,20 +10,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { initialsFrom } from "@/lib/initials";
 
 interface UserMenuProps {
   name: string;
   subtitle?: string;
   institution?: string;
   onLogout: () => void;
-}
-
-export function initialsFrom(name: string): string {
-  const parts = name.split(" ").filter(Boolean);
-  if (parts.length === 0) return "?";
-  const first = parts[0][0] ?? "";
-  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
-  return `${first}${last}`.toUpperCase();
 }
 
 export function UserMenu({
