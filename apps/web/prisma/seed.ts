@@ -196,6 +196,7 @@ async function main() {
 
   type PatientSeed = {
     email: string;
+    cpf: string;
     name: string;
     birthDate: Date;
     bloodType: string;
@@ -208,6 +209,7 @@ async function main() {
   const patientSeeds: PatientSeed[] = [
     {
       email: "joao.batista@exemplo.com",
+      cpf: "52998224725",
       name: "João Batista",
       birthDate: new Date("1963-04-15"),
       bloodType: "A+",
@@ -231,6 +233,7 @@ async function main() {
     },
     {
       email: "paciente2@medchain.demo",
+      cpf: "11144477735",
       name: faker.person.fullName(),
       birthDate: faker.date.birthdate({ min: 50, max: 80, mode: "age" }),
       bloodType: faker.helpers.arrayElement(["A+", "A-", "B+", "O+", "O-"]),
@@ -241,6 +244,7 @@ async function main() {
     },
     {
       email: "paciente3@medchain.demo",
+      cpf: "39053344705",
       name: faker.person.fullName(),
       birthDate: faker.date.birthdate({ min: 40, max: 70, mode: "age" }),
       bloodType: faker.helpers.arrayElement(["B+", "O+", "AB-"]),
@@ -251,6 +255,7 @@ async function main() {
     },
     {
       email: "paciente4@medchain.demo",
+      cpf: "16899560461",
       name: faker.person.fullName(),
       birthDate: faker.date.birthdate({ min: 60, max: 85, mode: "age" }),
       bloodType: faker.helpers.arrayElement(["O+", "A+"]),
@@ -264,6 +269,7 @@ async function main() {
     },
     {
       email: "paciente5@medchain.demo",
+      cpf: "23344556606",
       name: faker.person.fullName(),
       birthDate: faker.date.birthdate({ min: 55, max: 75, mode: "age" }),
       bloodType: "B+",
@@ -284,6 +290,7 @@ async function main() {
         data: {
           userId: user.id,
           fullName: p.name,
+          cpf: p.cpf,
           birthDate: p.birthDate,
           bloodType: p.bloodType,
           allergies: p.allergies,
@@ -564,6 +571,8 @@ async function main() {
   console.log("   joao.batista@exemplo.com      (paciente)");
   console.log("   maria.batista@exemplo.com     (contato de emergência)");
   console.log("   pedro.batista@exemplo.com     (contato de emergência)");
+  console.log("\nCPF para a busca do portal médico:");
+  console.log("   João Batista                  : 529.982.247-25");
 }
 
 main()
@@ -572,3 +581,4 @@ main()
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());
+

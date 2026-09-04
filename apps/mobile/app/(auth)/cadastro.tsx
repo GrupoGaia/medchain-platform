@@ -11,19 +11,37 @@ import {
 import { Text } from "../../src/components";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../src/context/AuthProvider";
+import { isValidCpf, normalizeCpf } from "@medchain/domain";
+
+// Mascara so para leitura enquanto digita. A validacao e a do dominio, aqui e
+// de novo no servidor.
+function maskCpf(value: string): string {
+  const digits = normalizeCpf(value).slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) {
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  }
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
 
 export default function CadastroScreen() {
   const { signUp } = useAuth();
   const router = useRouter();
   const [fullName, setFullName] = useState("");
+  const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSignUp = async () => {
-    if (!fullName || !email || !password) {
+    if (!fullName || !cpf || !email || !password) {
       setError("Preencha todos os campos.");
+      return;
+    }
+    if (!isValidCpf(cpf)) {
+      setError("CPF inválido. Confira os números digitados.");
       return;
     }
     if (password.length < 6) {
@@ -32,7 +50,7 @@ export default function CadastroScreen() {
     }
     setLoading(true);
     setError(null);
-    const { error } = await signUp(email.trim(), password, fullName.trim());
+    const { error } = await signUp(email.trim(), password, fullName.trim(), normalizeCpf(cpf));
     setLoading(false);
     if (error) {
       setError(error.includes("already") ? "Este email já está cadastrado." : error);
@@ -72,6 +90,21 @@ export default function CadastroScreen() {
                 placeholder="João da Silva"
                 className="rounded-lg border border-gray-300 px-3 py-3 text-sm text-gray-900"
               />
+            </View>
+
+            <View className="mb-3">
+              <Text className="mb-1 text-sm font-medium text-gray-700">CPF</Text>
+              <TextInput
+                value={cpf}
+                onChangeText={(value) => setCpf(maskCpf(value))}
+                keyboardType="number-pad"
+                placeholder="000.000.000-00"
+                maxLength={14}
+                className="rounded-lg border border-gray-300 px-3 py-3 text-sm text-gray-900"
+              />
+              <Text className="mt-1 text-xs text-gray-400">
+                É por ele que o médico localiza você para pedir acesso.
+              </Text>
             </View>
 
             <View className="mb-3">

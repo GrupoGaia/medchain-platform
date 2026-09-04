@@ -112,6 +112,8 @@ A senha dos usuários de exemplo é `medchain123`.
 | `maria.batista@exemplo.com` | Contato de emergência |
 | `pedro.batista@exemplo.com` | Contato de emergência |
 
+No portal médico, o paciente é localizado pelo CPF, e não por uma lista. O CPF do João Batista no seed é `529.982.247-25`. Os demais pacientes aparecem no final da saída do seed.
+
 ## Serviços locais
 
 | Serviço | URL |

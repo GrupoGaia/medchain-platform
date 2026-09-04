@@ -51,6 +51,16 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (input.role === "PATIENT") {
+    const cpfTaken = await prisma.patientProfile.findUnique({
+      where: { cpf: input.cpf },
+      select: { id: true },
+    });
+    if (cpfTaken) {
+      return NextResponse.json({ error: "Já existe um paciente com este CPF." }, { status: 409 });
+    }
+  }
+
   const created = await prisma.$transaction(async (tx) => {
     const dbUser = await tx.user.create({
       data: {
@@ -65,6 +75,7 @@ export async function POST(request: NextRequest) {
         data: {
           userId: dbUser.id,
           fullName: input.fullName,
+          cpf: input.cpf,
           allergies: [],
           chronicConditions: [],
           continuousMeds: [],

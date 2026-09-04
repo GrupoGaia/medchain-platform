@@ -7,7 +7,12 @@ interface AuthContextValue {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+    cpf: string
+  ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -37,14 +42,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, cpf: string) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { error: error.message };
 
     if (data.session) {
       // Cria o registro no Prisma via API
       try {
-        await api.createUser("PATIENT", fullName);
+        await api.createUser("PATIENT", fullName, cpf);
       } catch {
         // Usuário criado no Auth; tentativa de criar registro Prisma falhou, não bloqueia login
       }

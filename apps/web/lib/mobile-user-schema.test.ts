@@ -6,9 +6,39 @@ describe("CreateMobileUserSchema", () => {
     const result = CreateMobileUserSchema.safeParse({
       role: "PATIENT",
       fullName: "João Batista",
+      cpf: "529.982.247-25",
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("stores the patient cpf as digits only", () => {
+    const result = CreateMobileUserSchema.parse({
+      role: "PATIENT",
+      fullName: "João Batista",
+      cpf: "529.982.247-25",
+    });
+
+    expect(result).toMatchObject({ cpf: "52998224725" });
+  });
+
+  it("rejects a patient signup with an invalid cpf", () => {
+    const result = CreateMobileUserSchema.safeParse({
+      role: "PATIENT",
+      fullName: "João Batista",
+      cpf: "111.111.111-11",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a patient signup without a cpf", () => {
+    const result = CreateMobileUserSchema.safeParse({
+      role: "PATIENT",
+      fullName: "João Batista",
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it("accepts an emergency contact signup payload linked to a patient", () => {

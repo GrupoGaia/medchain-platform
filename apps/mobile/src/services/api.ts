@@ -51,10 +51,10 @@ export const api = {
   getAuditLogs: () => authedFetch<AuditLogResponse[]>("/api/audit-logs"),
 
   // Registro pós-signup
-  createUser: (role: string, fullName: string) =>
+  createUser: (role: string, fullName: string, cpf: string) =>
     authedFetch<unknown>("/api/users", {
       method: "POST",
-      body: JSON.stringify({ role, fullName }),
+      body: JSON.stringify({ role, fullName, cpf }),
     }),
 
   // Upload de documento (multipart/form-data)
