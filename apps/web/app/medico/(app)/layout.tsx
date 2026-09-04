@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { formatCrm } from "@medchain/domain";
 import { requireDoctor } from "@/lib/session";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { AppShell } from "@/components/medchain/app-shell";
@@ -22,7 +23,7 @@ export default async function MedicoLayout({
     <AppShell
       userName={profile?.fullName ?? user.email ?? "Profissional"}
       userSubtitle={
-        profile ? `${profile.specialty} · CRM ${profile.crm}` : undefined
+        profile ? `${profile.specialty} · ${formatCrm(profile.crm)}` : undefined
       }
       institution={profile?.institution?.name}
       logoutAction={logout}

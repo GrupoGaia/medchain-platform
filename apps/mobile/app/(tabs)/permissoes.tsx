@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Alert, RefreshControl, View } from "react-native";
 import { useRouter } from "expo-router";
 import { ShieldCheck, Clock, FileLock2, Building2 } from "lucide-react-native";
-import { SCOPE_LABEL, tokenTotalMinutes } from "@medchain/domain";
+import { SCOPE_LABEL, formatCrm, tokenTotalMinutes } from "@medchain/domain";
 import { colors } from "@medchain/ui-tokens";
 import {
   AccessCountdown,
@@ -97,7 +97,7 @@ export default function PermissoesScreen() {
                     {request.professional.fullName}
                   </Text>
                   <Text className="text-body-sm text-foreground-secondary">
-                    CRM {request.professional.crm} · {request.professional.specialty}
+                    {formatCrm(request.professional.crm)} · {request.professional.specialty}
                   </Text>
                   {request.professional.institution?.name ? (
                     <View className="mt-1 flex-row items-center gap-1.5">
@@ -164,7 +164,7 @@ export default function PermissoesScreen() {
                       {token.professional.fullName}
                     </Text>
                     <Text className="text-body-sm text-foreground-secondary">
-                      CRM {token.professional.crm} · {token.professional.specialty}
+                      {formatCrm(token.professional.crm)} · {token.professional.specialty}
                     </Text>
                     {token.professional.institution?.name ? (
                       <View className="mt-1 flex-row items-center gap-1.5">

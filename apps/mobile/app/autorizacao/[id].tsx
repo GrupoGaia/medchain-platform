@@ -18,6 +18,7 @@ import {
   SCOPE_SHARES,
   SCOPE_WITHHOLDS,
   formatMinutesRemaining,
+  formatCrm,
 } from "@medchain/domain";
 import { colors } from "@medchain/ui-tokens";
 import {
@@ -140,7 +141,7 @@ export default function AutorizacaoScreen() {
                 {professional.fullName}
               </Text>
               <Text className="text-body-sm text-foreground-secondary">
-                CRM {professional.crm} · {professional.specialty}
+                {formatCrm(professional.crm)} · {professional.specialty}
               </Text>
               {professional.institution?.name ? (
                 <View className="mt-1.5 flex-row items-center gap-1.5">

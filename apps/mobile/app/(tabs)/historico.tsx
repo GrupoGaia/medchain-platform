@@ -10,6 +10,7 @@ import {
   UserX,
   type LucideIcon,
 } from "lucide-react-native";
+import { formatCrm } from "@medchain/domain";
 import { colors } from "@medchain/ui-tokens";
 import {
   EmptyState,
@@ -119,7 +120,7 @@ function TimelineItem({
         </Text>
         {professional ? (
           <Text className="text-body-sm text-foreground-secondary">
-            {professional.fullName} · CRM {professional.crm}
+            {professional.fullName} · {formatCrm(professional.crm)}
           </Text>
         ) : null}
         <Text className="text-caption text-foreground-tertiary">

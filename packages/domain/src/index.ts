@@ -6,3 +6,4 @@ export * from "./access/scope-labels";
 export * from "./patients/cpf";
 export * from "./patients/contact-link";
 export * from "./patients/blood-type";
+export * from "./professionals/crm";
