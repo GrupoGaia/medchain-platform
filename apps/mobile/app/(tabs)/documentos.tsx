@@ -8,6 +8,7 @@ import {
   Alert,
   Linking,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Card, EmptyState, ExamResultsTable, Text } from "../../src/components";
 import emptyDocuments from "../../assets/img/empty-documents.png";
 import * as DocumentPicker from "expo-document-picker";
@@ -86,15 +87,18 @@ export default function DocumentosScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50">
+      <SafeAreaView className="flex-1 items-center justify-center bg-gray-50">
         <ActivityIndicator size="large" color={colors.brand[700]} />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
+    // Esta era a unica aba sem SafeAreaView, entao o titulo ficava embaixo do
+    // relogio da barra de status enquanto as outras respeitavam o inset.
+    <SafeAreaView className="flex-1 bg-gray-50">
     <ScrollView
-      className="flex-1 bg-gray-50"
+      className="flex-1"
       contentContainerStyle={{ padding: 16 }}
       refreshControl={
         <RefreshControl
@@ -194,5 +198,6 @@ export default function DocumentosScreen() {
         </View>
       )}
     </ScrollView>
+    </SafeAreaView>
   );
 }
