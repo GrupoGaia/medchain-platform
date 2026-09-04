@@ -3,3 +3,6 @@ export * from "./tokens/validate";
 export * from "./exams/reference-range";
 export * from "./access/scope";
 export * from "./access/scope-labels";
+export * from "./patients/cpf";
+export * from "./patients/contact-link";
+export * from "./patients/blood-type";

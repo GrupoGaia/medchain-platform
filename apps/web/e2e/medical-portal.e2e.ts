@@ -7,6 +7,7 @@ import type { APIRequestContext, APIResponse, Page } from "playwright/test";
 const WEB_ROOT = process.cwd();
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const PATIENT_EMAIL = "joao.batista@exemplo.com";
+const PATIENT_CPF = "529.982.247-25";
 const DOCTOR_EMAIL = "ana.ferreira@medchain.demo";
 const DEMO_PASSWORD = "medchain123";
 
@@ -45,7 +46,11 @@ test("medico solicita acesso, paciente aprova e o medico encerra o token", async
   await page.getByRole("main").getByRole("link", { name: "Solicitar acesso" }).click();
   await expect(page.getByRole("heading", { name: "Solicitar acesso ao prontuário" })).toBeVisible();
 
-  await selectOption(page, "#patientId", "João Batista");
+  // O formulario nao lista mais pacientes: o medico localiza pelo CPF exato.
+  await page.locator("#cpf").fill(PATIENT_CPF);
+  await page.getByRole("button", { name: "Buscar" }).click();
+  await expect(page.getByText("João Batista")).toBeVisible();
+
   await selectOption(page, "#scope", "Prontuário completo");
   await page.locator("#reason").fill(reason);
   await page.getByRole("button", { name: "Enviar solicitação" }).click();
@@ -62,7 +67,11 @@ test("medico solicita acesso, paciente aprova e o medico encerra o token", async
   expect(approvedToken.professionalId).toBe(accessRequest.professionalId);
 
   await page.goto(`/medico/prontuario/${approvedToken.patientId}`);
-  await expect(page.getByText("Acesso ativo")).toBeVisible();
+  // O rotulo e "Acesso Temporário Ativo" desde o refinamento visual. A
+  // assercao antiga procurava "Acesso ativo" e nunca foi atualizada, porque o
+  // E2E roda sob demanda e nao entra no CI.
+  await expect(page.getByText("Acesso Temporário Ativo")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Encerrar acesso" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Documentos" })).toBeVisible();
 
   await page.getByRole("button", { name: "Encerrar acesso" }).click();

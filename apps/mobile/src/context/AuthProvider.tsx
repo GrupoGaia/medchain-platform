@@ -1,13 +1,17 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../services/supabase";
-import { api } from "../services/api";
+import { api, type CreateUserInput } from "../services/api";
 
 interface AuthContextValue {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    profile: CreateUserInput
+  ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -37,16 +41,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, profile: CreateUserInput) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { error: error.message };
 
     if (data.session) {
-      // Cria o registro no Prisma via API
+      // O registro no Prisma precisa dar certo: sem ele o contato fica com
+      // conta no Auth e nenhum vinculo, e o paciente nunca ve o pedido.
       try {
-        await api.createUser("PATIENT", fullName);
-      } catch {
-        // Usuário criado no Auth; tentativa de criar registro Prisma falhou, não bloqueia login
+        await api.createUser(profile);
+      } catch (createError) {
+        const message =
+          createError instanceof Error && createError.message.includes("404")
+            ? "Nenhum paciente com este CPF."
+            : "Conta criada, mas não foi possível concluir o cadastro.";
+        return { error: message };
       }
     }
 

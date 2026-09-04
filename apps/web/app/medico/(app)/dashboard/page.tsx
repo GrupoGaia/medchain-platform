@@ -96,26 +96,26 @@ export default async function DashboardPage() {
                   const minutesRemaining = token.validation.valid ? token.validation.minutesRemaining : 0;
                   const totalMinutes = tokenTotalMinutes(token);
                   return (
-                    <Card key={token.id} className="border shadow-sm">
+                    <Card key={token.id} className="border border-slate-200/80 bg-white shadow-xs transition-all duration-200 hover:border-primary-200 hover:shadow-sm">
                       <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3.5">
                           <Image
                             src="/img/patient-avatar-joao.png"
                             alt={token.patient.fullName}
-                            width={40}
-                            height={40}
-                            className="rounded-full border bg-muted object-cover"
+                            width={44}
+                            height={44}
+                            className="rounded-full border border-primary-200/70 bg-muted object-cover shadow-2xs"
                           />
-                          <div className="space-y-1">
-                            <p className="font-semibold text-foreground">{token.patient.fullName}</p>
-                            <p className="text-sm text-muted-foreground">{SCOPE_LABEL[token.scope]}</p>
+                          <div className="space-y-0.5">
+                            <p className="font-semibold text-slate-900">{token.patient.fullName}</p>
+                            <p className="text-xs font-medium text-muted-foreground">{SCOPE_LABEL[token.scope]}</p>
                           </div>
                         </div>
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                           <CountdownBadge minutesRemaining={minutesRemaining} totalMinutes={totalMinutes} />
                           <Link
                             href={`/medico/prontuario/${token.patientId}`}
-                            className={cn(buttonVariants())}
+                            className={cn(buttonVariants({ size: "sm" }), "shadow-2xs")}
                           >
                             Abrir prontuário
                           </Link>
@@ -133,15 +133,15 @@ export default async function DashboardPage() {
               <h2 className="text-lg font-semibold tracking-tight text-foreground">Aguardando autorização do paciente</h2>
               <div className="grid gap-3">
                 {pendingRequests.map((req) => (
-                  <Card key={req.id} className="border shadow-sm">
+                  <Card key={req.id} className="border border-amber-200/80 bg-gradient-to-r from-amber-50/40 via-white to-white shadow-xs">
                     <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-1">
-                        <p className="font-semibold text-foreground">{req.patient.fullName}</p>
-                        <p className="text-sm text-muted-foreground">{SCOPE_LABEL[req.scope]}</p>
-                        {req.reason && <p className="text-xs text-muted-foreground/80">{req.reason}</p>}
+                        <p className="font-semibold text-slate-900">{req.patient.fullName}</p>
+                        <p className="text-xs font-medium text-slate-600">{SCOPE_LABEL[req.scope]}</p>
+                        {req.reason && <p className="text-xs text-muted-foreground/90">{req.reason}</p>}
                       </div>
-                      <Badge variant="secondary" className="w-fit gap-1 bg-amber-50 text-amber-700 hover:bg-amber-100">
-                        <AlertCircle size={12} />
+                      <Badge variant="outline" className="w-fit gap-1 border-amber-300 bg-amber-100/80 text-amber-900">
+                        <AlertCircle size={12} className="text-amber-700" />
                         Pendente
                       </Badge>
                     </CardContent>
@@ -199,3 +199,4 @@ export default async function DashboardPage() {
     </div>
   );
 }
+

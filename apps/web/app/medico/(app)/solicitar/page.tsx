@@ -17,6 +17,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PageHeader } from "@/components/medchain/page-header";
+import { PatientSearch } from "./patient-search";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, AlertCircle, Clock, Shield, Send } from "lucide-react";
 
@@ -33,6 +34,15 @@ async function createRequest(formData: FormData) {
 
   const result = CreateAccessRequestSchema.safeParse(raw);
   if (!result.success) redirect("/medico/solicitar?error=invalid");
+
+  // O patientId chega de um campo oculto preenchido pela busca, entao vale
+  // conferir que ele existe. Sem isso, um id forjado quebraria na chave
+  // estrangeira e viraria erro 500 em vez de mensagem no formulario.
+  const patient = await prisma.patientProfile.findUnique({
+    where: { id: result.data.patientId },
+    select: { id: true },
+  });
+  if (!patient) redirect("/medico/solicitar?error=invalid");
 
   const professional = await prisma.healthProfessionalProfile.findUniqueOrThrow({
     where: { id: doctorId },
@@ -62,10 +72,9 @@ export default async function SolicitarPage({
   const { error } = await searchParams;
   const { doctorId } = await requireDoctor();
 
-  const [doctor, patients] = await Promise.all([
-    prisma.healthProfessionalProfile.findUnique({ where: { id: doctorId } }),
-    prisma.patientProfile.findMany({ orderBy: { fullName: "asc" } }),
-  ]);
+  const doctor = await prisma.healthProfessionalProfile.findUnique({
+    where: { id: doctorId },
+  });
   if (!doctor) redirect("/medico/login");
 
   return (
@@ -88,21 +97,7 @@ export default async function SolicitarPage({
         <Card className="border shadow-sm">
           <CardContent className="p-6">
             <form action={createRequest} className="space-y-6">
-              <div className="space-y-1.5">
-                <Label htmlFor="patientId">Paciente *</Label>
-                <Select name="patientId" required>
-                  <SelectTrigger id="patientId">
-                    <SelectValue placeholder="Selecione o paciente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {patients.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.fullName} — {p.bloodType ?? "Tipo sang. não informado"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <PatientSearch />
 
               <div className="space-y-1.5">
                 <Label htmlFor="scope">Dados solicitados *</Label>

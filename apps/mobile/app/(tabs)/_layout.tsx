@@ -9,12 +9,16 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.brand[700],
         tabBarInactiveTintColor: colors.neutral.muted,
         tabBarStyle: {
-          borderTopColor: colors.neutral.borderSubtle,
-          paddingBottom: 4,
+          backgroundColor: colors.neutral.surface,
+          borderTopColor: colors.neutral.border,
+          borderTopWidth: 1,
+          height: 62,
+          paddingBottom: 8,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "500",
+          fontSize: 11,
+          fontWeight: "600",
         },
         headerShown: false,
       }}

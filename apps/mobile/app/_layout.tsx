@@ -10,6 +10,7 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from "@expo-google-fonts/inter";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppStoreProvider } from "../src/context/AppStore";
 import { AuthProvider, useAuth } from "../src/context/AuthProvider";
 
@@ -41,6 +42,10 @@ function RootLayoutNav() {
           name="autorizacao/[id]"
           options={{ headerShown: false, presentation: "modal" }}
         />
+        <Stack.Screen
+          name="editar-perfil"
+          options={{ headerShown: false, presentation: "modal" }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </AppStoreProvider>
@@ -65,8 +70,12 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    // O SafeAreaProvider precisa envolver o app inteiro: e ele que mede os
+    // insets do aparelho e alimenta o SafeAreaView de react-native-safe-area-context.
+    <SafeAreaProvider>
+      <AuthProvider>
+        <RootLayoutNav />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

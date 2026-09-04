@@ -7,11 +7,13 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { Text } from "../../src/components";
 import { useAuth } from "../../src/context/AuthProvider";
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +91,20 @@ export default function LoginScreen() {
             ) : (
               <Text className="font-semibold text-white">Entrar</Text>
             )}
+          </TouchableOpacity>
+
+          {/* A tela de cadastro existia mas nao tinha como ser aberta: nada no
+              app navegava ate ela. Sem este link, nem paciente novo nem contato
+              de emergencia conseguem criar conta. */}
+          <TouchableOpacity
+            onPress={() => router.push("/(auth)/cadastro" as never)}
+            className="items-center py-3"
+            accessibilityRole="button"
+            accessibilityLabel="Criar conta"
+          >
+            <Text className="text-sm text-gray-500">
+              Não tem conta? <Text className="font-medium text-brand-600">Criar conta</Text>
+            </Text>
           </TouchableOpacity>
         </View>
 
