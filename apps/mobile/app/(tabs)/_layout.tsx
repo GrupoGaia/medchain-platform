@@ -1,11 +1,17 @@
 import { Tabs } from "expo-router";
 import { Home, Clock, ShieldCheck, User, FileText } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "@medchain/ui-tokens";
 import { useAppStore } from "../../src/context/AppStore";
 
 export default function TabsLayout() {
   const { pendingRequests } = useAppStore();
+  const insets = useSafeAreaInsets();
   const pendingCount = pendingRequests.length;
+
+  // A altura da barra soma o inset de baixo. Fixar um valor sozinho fazia a
+  // barra de gestos do Android passar por cima dos rotulos das abas.
+  const bottomInset = Math.max(insets.bottom, 8);
 
   return (
     // Permissões vem logo depois de Início porque decidir e revogar acesso é o
@@ -19,8 +25,8 @@ export default function TabsLayout() {
           backgroundColor: colors.semantic.surface,
           borderTopColor: colors.semantic.border,
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
+          height: 56 + bottomInset,
+          paddingBottom: bottomInset,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
