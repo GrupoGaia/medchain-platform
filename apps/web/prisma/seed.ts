@@ -317,6 +317,11 @@ async function main() {
               name: c.name,
               relation: c.relation,
               phone: c.phone,
+              // O vinculo nasce PENDING por default. Na demo os contatos ja
+              // sao de confianca do paciente, entao entram aprovados, senao a
+              // Maria e o Pedro perdem o acesso a cada reseed.
+              status: "APPROVED",
+              respondedAt: new Date(),
             },
           });
         })

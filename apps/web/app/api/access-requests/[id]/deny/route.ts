@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
+import { contactLinkGrantsAccess } from "@medchain/domain";
 
 export async function POST(
   request: NextRequest,
@@ -26,8 +27,9 @@ export async function POST(
   }
 
   const isPatient = user.patientProfile?.id === accessRequest.patientId;
+  // Mesmo filtro do approve: so vinculo aprovado responde por outro paciente.
   const isEmergencyContact = accessRequest.patient.emergencyContacts.some(
-    (c) => c.userId === user.id
+    (c) => c.userId === user.id && contactLinkGrantsAccess(c.status)
   );
   if (!isPatient && !isEmergencyContact) return forbidden();
 

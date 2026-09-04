@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiUser, unauthorized, forbidden } from "@/lib/api-auth";
-import { buildTokenExpiry } from "@medchain/domain";
+import { buildTokenExpiry, contactLinkGrantsAccess } from "@medchain/domain";
 
 export async function POST(
   request: NextRequest,
@@ -29,8 +29,10 @@ export async function POST(
   }
 
   const isPatient = user.patientProfile?.id === accessRequest.patientId;
+  // Vinculo pendente ou negado nao aprova nada. Sem o filtro de status, quem
+  // se declarasse contato de emergencia liberava o prontuario para um medico.
   const isEmergencyContact = accessRequest.patient.emergencyContacts.some(
-    (c) => c.userId === user.id
+    (c) => c.userId === user.id && contactLinkGrantsAccess(c.status)
   );
   if (!isPatient && !isEmergencyContact) return forbidden();
 

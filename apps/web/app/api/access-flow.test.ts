@@ -5,7 +5,7 @@ type DemoUser = {
   id: string;
   patientProfile?: { id: string } | null;
   professionalProfile?: { id: string } | null;
-  contactFor?: Array<{ patientId: string }> | null;
+  contactFor?: Array<{ patientId: string; status: string }> | null;
 };
 
 type AccessRequest = {
@@ -17,7 +17,7 @@ type AccessRequest = {
   durationMinutes: number;
   reason: string | null;
   status: "PENDING" | "APPROVED" | "DENIED";
-  patient?: { emergencyContacts: Array<{ userId: string }> };
+  patient?: { emergencyContacts: Array<{ userId: string; status: string }> };
 };
 
 type AccessToken = {
@@ -54,6 +54,7 @@ const state = vi.hoisted(() => ({
   documents: new Map<string, MedicalDocument>(),
   requestSequence: 0,
   tokenSequence: 0,
+  contactLinkStatus: "APPROVED" as string,
 }));
 
 const PATIENT_ID = "11111111-1111-4111-8111-111111111111";
@@ -81,12 +82,17 @@ vi.mock("@/lib/patient-access", () => ({
   getManagedPatientIds: (user: DemoUser) => {
     const ids = new Set<string>();
     if (user.patientProfile?.id) ids.add(user.patientProfile.id);
-    for (const contact of user.contactFor ?? []) ids.add(contact.patientId);
+    // Espelha o filtro real: vinculo nao aprovado nao gerencia paciente nenhum.
+    for (const contact of user.contactFor ?? []) {
+      if (contact.status === "APPROVED") ids.add(contact.patientId);
+    }
     return Array.from(ids);
   },
   canManagePatient: (user: DemoUser, patientId: string) => {
     if (user.patientProfile?.id === patientId) return true;
-    return (user.contactFor ?? []).some((contact) => contact.patientId === patientId);
+    return (user.contactFor ?? []).some(
+      (contact) => contact.patientId === patientId && contact.status === "APPROVED"
+    );
   },
 }));
 
@@ -117,7 +123,11 @@ vi.mock("@/lib/prisma", () => {
         if (!accessRequest) return null;
         return {
           ...accessRequest,
-          patient: { emergencyContacts: [{ userId: CONTACT_USER_ID }] },
+          patient: {
+            emergencyContacts: [
+              { userId: CONTACT_USER_ID, status: state.contactLinkStatus },
+            ],
+          },
         };
       }),
       update: vi.fn(async ({ where, data }: { where: { id: string }; data: Partial<AccessRequest> }) => {
@@ -226,6 +236,7 @@ describe("critical API access flow", () => {
     state.accessTokens.clear();
     state.accessLogs.length = 0;
     state.documents.clear();
+    state.contactLinkStatus = "APPROVED";
     state.requestSequence = 0;
     state.tokenSequence = 0;
     state.documents.set("doc-1", {
@@ -565,4 +576,60 @@ describe("critical API access flow", () => {
     expect(revokeLogs).toHaveLength(1);
     expect(revokeLogs[0]?.actorUserId).toBe(PATIENT_USER_ID);
   });
+
+  // Antes, bastava existir uma linha em emergency_contacts para responder pelo
+  // paciente, e qualquer conta criava a sua. Agora o vinculo precisa estar
+  // aprovado, e o proprio pedido pendente nao vale nada.
+  it("refuses an emergency contact whose link the patient has not approved", async () => {
+    const { POST: createAccessRequest } = await import("./access-requests/route");
+    const { POST: approveAccessRequest } = await import("./access-requests/[id]/approve/route");
+
+    state.currentUser = {
+      id: DOCTOR_USER_ID,
+      professionalProfile: { id: DOCTOR_ID },
+      patientProfile: null,
+      contactFor: [],
+    };
+
+    const created = await createAccessRequest(
+      request("/api/access-requests", {
+        method: "POST",
+        body: JSON.stringify({ patientId: PATIENT_ID, scope: "FULL", durationMinutes: 60 }),
+      })
+    );
+    expect(created.status).toBe(201);
+    const requestId = (await json(created)).id as string;
+
+    const pendingContact = {
+      id: CONTACT_USER_ID,
+      professionalProfile: null,
+      patientProfile: null,
+      contactFor: [{ patientId: PATIENT_ID, status: "PENDING" }],
+    };
+
+    state.contactLinkStatus = "PENDING";
+    state.currentUser = pendingContact;
+
+    const refused = await approveAccessRequest(
+      request(`/api/access-requests/${requestId}/approve`, { method: "POST" }),
+      { params: Promise.resolve({ id: requestId }) }
+    );
+    expect(refused.status).toBe(403);
+    expect(state.accessTokens.size).toBe(0);
+
+    // Com o vinculo aprovado pelo paciente, o mesmo contato passa a responder.
+    state.contactLinkStatus = "APPROVED";
+    state.currentUser = {
+      ...pendingContact,
+      contactFor: [{ patientId: PATIENT_ID, status: "APPROVED" }],
+    };
+
+    const approved = await approveAccessRequest(
+      request(`/api/access-requests/${requestId}/approve`, { method: "POST" }),
+      { params: Promise.resolve({ id: requestId }) }
+    );
+    expect(approved.status).toBe(201);
+    expect(state.accessTokens.size).toBe(1);
+  });
 });
+

@@ -50,6 +50,12 @@ enum AccessScope {
   PRESCRIPTIONS
 }
 
+enum ContactLinkStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // User
 // ────────────────────────────────────────────────────────────────────────────
@@ -106,19 +112,23 @@ model PatientProfile {
 // ────────────────────────────────────────────────────────────────────────────
 
 model EmergencyContact {
-  id        String   @id @default(uuid())
-  patientId String   @map("patient_id")
-  userId    String?  @map("user_id")
+  id        String            @id @default(uuid())
+  patientId String            @map("patient_id")
+  userId    String?           @map("user_id")
   name      String
   relation  String
   phone     String
-  createdAt DateTime @default(now()) @map("created_at")
+  // O vinculo nasce pendente e so da acesso depois que o paciente aprova.
+  status      ContactLinkStatus @default(PENDING)
+  respondedAt DateTime?         @map("responded_at")
+  createdAt   DateTime          @default(now()) @map("created_at")
 
   patient PatientProfile @relation(fields: [patientId], references: [id])
   user    User?          @relation("ContactForPatient", fields: [userId], references: [id])
 
   @@index([userId], map: "idx_emergency_contacts_user")
   @@index([patientId], map: "idx_emergency_contacts_patient")
+  @@index([patientId, status], map: "idx_emergency_contacts_patient_status")
   @@map("emergency_contacts")
 }
 

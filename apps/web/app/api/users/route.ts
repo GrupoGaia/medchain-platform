@@ -41,14 +41,18 @@ export async function POST(request: NextRequest) {
 
   const input = result.data;
 
+  // O contato aponta o paciente pelo CPF. O vinculo nasce PENDING pelo default
+  // do banco: ate o paciente aprovar no app, esta conta nao enxerga nada dele.
+  let linkedPatientId: string | null = null;
   if (input.role === "EMERGENCY_CONTACT") {
     const patient = await prisma.patientProfile.findUnique({
-      where: { id: input.patientId },
+      where: { cpf: input.patientCpf },
       select: { id: true },
     });
     if (!patient) {
-      return NextResponse.json({ error: "Paciente não encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "Nenhum paciente com este CPF." }, { status: 404 });
     }
+    linkedPatientId = patient.id;
   }
 
   if (input.role === "PATIENT") {
@@ -84,11 +88,12 @@ export async function POST(request: NextRequest) {
     } else {
       await tx.emergencyContact.create({
         data: {
-          patientId: input.patientId,
+          patientId: linkedPatientId!,
           userId: dbUser.id,
           name: input.fullName,
           relation: input.relation,
           phone: input.phone,
+          status: "PENDING",
         },
       });
     }

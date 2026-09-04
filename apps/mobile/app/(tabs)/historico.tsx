@@ -12,6 +12,8 @@ function formatEventType(eventType: string): string {
     DENY: "Acesso negado",
     REVOKE: "Acesso revogado",
     REQUEST: "Acesso solicitado",
+    CONTACT_APPROVE: "Contato de emergência aceito",
+    CONTACT_DENY: "Contato de emergência recusado",
   };
   return map[eventType] ?? eventType;
 }

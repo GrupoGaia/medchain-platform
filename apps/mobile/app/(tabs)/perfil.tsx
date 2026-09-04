@@ -1,7 +1,15 @@
-import { useState, useEffect } from "react";
-import { View, ScrollView, SafeAreaView, TouchableOpacity, Linking, Alert } from "react-native";
+import { useState, useEffect, useCallback } from "react";
+import {
+  View,
+  ScrollView,
+  SafeAreaView,
+  TouchableOpacity,
+  Linking,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { SectionLabel, Text } from "../../src/components";
-import { User, AlertTriangle, Pill, Phone, LogOut } from "lucide-react-native";
+import { User, AlertTriangle, Pill, Phone, LogOut, UserPlus } from "lucide-react-native";
 import { api, type PatientProfileResponse } from "../../src/services/api";
 import { useAuth } from "../../src/context/AuthProvider";
 import { colors } from "@medchain/ui-tokens";
@@ -29,10 +37,70 @@ async function callContact(phone: string) {
 export default function PerfilScreen() {
   const { signOut } = useAuth();
   const [profile, setProfile] = useState<PatientProfileResponse | null>(null);
+  const [respondingTo, setRespondingTo] = useState<string | null>(null);
+  const [awaitingApproval, setAwaitingApproval] = useState(false);
+
+  const loadProfile = useCallback(() => {
+    api
+      .getMyProfile()
+      .then((loaded) => {
+        setProfile(loaded);
+        setAwaitingApproval(false);
+      })
+      .catch(async () => {
+        // Contato ainda nao aprovado nao gerencia paciente nenhum, entao toda
+        // rota de paciente devolve 403. Os vinculos dele proprio continuam
+        // legiveis, e sao o que diz se o pedido esta so aguardando resposta.
+        try {
+          const links = await api.getMyContactLinks();
+          setAwaitingApproval(links.some((link) => link.status === "PENDING"));
+        } catch {
+          setAwaitingApproval(false);
+        }
+      });
+  }, []);
 
   useEffect(() => {
-    api.getMyProfile().then(setProfile).catch(() => null);
-  }, []);
+    loadProfile();
+  }, [loadProfile]);
+
+  async function respondToLink(linkId: string, approve: boolean) {
+    setRespondingTo(linkId);
+    try {
+      await (approve ? api.approveContactLink(linkId) : api.denyContactLink(linkId));
+      loadProfile();
+    } catch {
+      Alert.alert("Erro", "Não foi possível responder ao pedido.");
+    } finally {
+      setRespondingTo(null);
+    }
+  }
+
+  if (awaitingApproval) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-gray-50 px-8">
+        <View className="mb-4 h-14 w-14 items-center justify-center rounded-full bg-amber-100">
+          <UserPlus color={colors.alert.amber} size={26} />
+        </View>
+        <Text className="text-center text-lg font-bold text-gray-900">
+          Aguardando o paciente
+        </Text>
+        <Text className="mt-2 text-center text-sm text-gray-500">
+          Seu pedido para ser contato de emergência foi enviado. Até o paciente aceitar,
+          você não tem acesso aos dados dele.
+        </Text>
+        <TouchableOpacity
+          onPress={signOut}
+          className="mt-8 flex-row items-center justify-center gap-2 rounded-xl bg-red-50 px-6 py-3"
+          accessibilityLabel="Sair da conta"
+          accessibilityRole="button"
+        >
+          <LogOut color={colors.alert.red} size={16} />
+          <Text className="text-sm font-medium text-red-600">Sair</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   if (!profile) {
     return (
@@ -42,7 +110,11 @@ export default function PerfilScreen() {
     );
   }
 
-  const contacts = profile.emergencyContacts;
+  // Pendentes primeiro, em bloco proprio: enquanto o paciente nao responde,
+  // esse vinculo nao da acesso a nada, e misturar com os aprovados faria
+  // parecer que ja da.
+  const pendingLinks = profile.emergencyContacts.filter((c) => c.status === "PENDING");
+  const contacts = profile.emergencyContacts.filter((c) => c.status === "APPROVED");
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -101,6 +173,63 @@ export default function PerfilScreen() {
             </View>
           </View>
         </View>
+
+        {/* Pedidos de vínculo aguardando resposta */}
+        {pendingLinks.length > 0 && (
+          <>
+            <SectionLabel tone="warning">Pedidos de vínculo</SectionLabel>
+            <View className="mb-6 gap-3">
+              {pendingLinks.map((link) => (
+                <View
+                  key={link.id}
+                  className="rounded-2xl border border-amber-200 bg-amber-50 p-5"
+                >
+                  <View className="mb-3 flex-row items-center gap-2">
+                    <UserPlus color={colors.alert.amber} size={18} />
+                    <Text className="text-sm font-semibold text-amber-700">
+                      Quer ser seu contato de emergência
+                    </Text>
+                  </View>
+                  <Text className="text-base font-bold text-gray-900">{link.name}</Text>
+                  <Text className="text-sm text-gray-500">
+                    {link.relation} · {link.phone}
+                  </Text>
+                  <Text className="mb-4 mt-2 text-xs text-gray-500">
+                    Se você aceitar, essa pessoa poderá autorizar acessos ao seu prontuário
+                    e ver seus documentos. Enquanto não responder, ela não vê nada.
+                  </Text>
+
+                  {respondingTo === link.id ? (
+                    <ActivityIndicator color={colors.brand[700]} />
+                  ) : (
+                    <View className="flex-row gap-2">
+                      <TouchableOpacity
+                        onPress={() => respondToLink(link.id, false)}
+                        className="flex-1 rounded-xl border border-gray-200 bg-white py-3"
+                        accessibilityRole="button"
+                        accessibilityLabel={`Recusar ${link.name} como contato de emergência`}
+                      >
+                        <Text className="text-center text-sm font-semibold text-gray-600">
+                          Recusar
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => respondToLink(link.id, true)}
+                        className="flex-1 rounded-xl bg-brand-600 py-3"
+                        accessibilityRole="button"
+                        accessibilityLabel={`Aceitar ${link.name} como contato de emergência`}
+                      >
+                        <Text className="text-center text-sm font-semibold text-white">
+                          Aceitar
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          </>
+        )}
 
         {/* Contatos de emergência */}
         <SectionLabel>

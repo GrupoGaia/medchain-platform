@@ -434,6 +434,8 @@ export default async function ProntuarioPage({
                           {log.eventType === "APPROVE" && "Acesso aprovado"}
                           {log.eventType === "REVOKE" && "Acesso encerrado"}
                           {log.eventType === "DENY" && "Acesso negado"}
+                          {log.eventType === "CONTACT_APPROVE" && "Contato de emergência aceito"}
+                          {log.eventType === "CONTACT_DENY" && "Contato de emergência recusado"}
                         </span>
                       </div>
                       <span className="text-xs text-muted-foreground">

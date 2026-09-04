@@ -17,10 +17,13 @@ export const CreateMobilePatientUserSchema = z.object({
   cpf: CpfSchema,
 });
 
+// O contato identifica o paciente pelo CPF, e nao pelo id interno. Um UUID
+// vazado virava vinculo direto; o CPF quem tem e a familia, e mesmo assim o
+// vinculo so nasce pendente.
 export const CreateMobileEmergencyContactUserSchema = z.object({
   role: z.literal("EMERGENCY_CONTACT"),
   fullName: FullNameSchema,
-  patientId: z.string().uuid(),
+  patientCpf: CpfSchema,
   relation: z.string().trim().min(2).max(80),
   phone: z.string().trim().min(8).max(30),
 });

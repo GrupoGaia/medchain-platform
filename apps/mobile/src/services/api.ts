@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import type { AccessScope } from "@medchain/domain";
+import type { AccessScope, ContactLinkStatus } from "@medchain/domain";
 import { supabase } from "./supabase";
 import { buildApiUrl } from "./api-url";
 
@@ -51,11 +51,18 @@ export const api = {
   getAuditLogs: () => authedFetch<AuditLogResponse[]>("/api/audit-logs"),
 
   // Registro pós-signup
-  createUser: (role: string, fullName: string, cpf: string) =>
+  createUser: (input: CreateUserInput) =>
     authedFetch<unknown>("/api/users", {
       method: "POST",
-      body: JSON.stringify({ role, fullName, cpf }),
+      body: JSON.stringify(input),
     }),
+
+  // Vínculos de contato de emergência
+  getMyContactLinks: () => authedFetch<ContactLinkResponse[]>("/api/me/contact-links"),
+  approveContactLink: (id: string) =>
+    authedFetch<unknown>(`/api/contact-links/${id}/approve`, { method: "POST" }),
+  denyContactLink: (id: string) =>
+    authedFetch<unknown>(`/api/contact-links/${id}/deny`, { method: "POST" }),
 
   // Upload de documento (multipart/form-data)
   uploadDocument: async (data: {
@@ -114,8 +121,30 @@ export interface PatientProfileResponse {
   emergencyContacts: EmergencyContactResponse[];
 }
 
+export type CreateUserInput =
+  | { role: "PATIENT"; fullName: string; cpf: string }
+  | {
+      role: "EMERGENCY_CONTACT";
+      fullName: string;
+      patientCpf: string;
+      relation: string;
+      phone: string;
+    };
+
+// O vínculo do próprio usuário. Não traz nada do paciente: quem pediu já sabe
+// de quem se trata, e um pedido pendente não pode virar meio de confirmar
+// dados de quem ainda não respondeu.
+export interface ContactLinkResponse {
+  id: string;
+  status: ContactLinkStatus;
+  relation: string;
+  createdAt: string;
+  respondedAt: string | null;
+}
+
 export interface EmergencyContactResponse {
   id: string;
+  status: ContactLinkStatus;
   name: string;
   relation: string;
   phone: string;
