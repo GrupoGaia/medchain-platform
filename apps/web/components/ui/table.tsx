@@ -84,7 +84,13 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   return (
     <td
       data-slot="table-cell"
-      className={cn("px-3 py-2.5 align-middle text-foreground-secondary", className)}
+      // `whitespace-nowrap` por padrão: número, unidade e faixa de referência
+      // ficam ilegíveis quebrados no meio. Quando não couber, quem rola é o
+      // contêiner da tabela, não a célula.
+      className={cn(
+        "whitespace-nowrap px-3 py-2.5 align-middle text-foreground-secondary",
+        className
+      )}
       {...props}
     />
   )
