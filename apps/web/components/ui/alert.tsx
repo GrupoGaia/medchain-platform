@@ -3,14 +3,20 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
+// O ícone entra por prop, e não como filho solto, para que o alinhamento em
+// duas colunas seja garantido pelo componente. O tom nunca informa sozinho:
+// todo alerta tem título em texto.
 const alertVariants = cva(
-  "group/alert relative grid w-full gap-0.5 rounded-lg border px-2.5 py-2 text-left text-sm has-data-[slot=alert-action]:relative has-data-[slot=alert-action]:pr-18 has-[>svg]:grid-cols-[auto_1fr] has-[>svg]:gap-x-2 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg]:text-current *:[svg:not([class*='size-'])]:size-4",
+  "flex w-full items-start gap-3 rounded-lg border px-4 py-3 text-left",
   {
     variants: {
       variant: {
-        default: "bg-card text-card-foreground",
-        destructive:
-          "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
+        default: "border-border bg-surface text-foreground",
+        info: "border-info-border bg-info-subtle text-foreground",
+        success: "border-success-border bg-success-subtle text-foreground",
+        warning: "border-warning-border bg-warning-subtle text-foreground",
+        danger: "border-danger-border bg-danger-subtle text-foreground",
+        destructive: "border-danger-border bg-danger-subtle text-foreground",
       },
     },
     defaultVariants: {
@@ -19,43 +25,61 @@ const alertVariants = cva(
   }
 )
 
+const iconVariants = cva("mt-0.5 shrink-0 [&>svg]:size-[18px]", {
+  variants: {
+    variant: {
+      default: "text-muted-foreground",
+      info: "text-info",
+      success: "text-success",
+      warning: "text-warning",
+      danger: "text-danger",
+      destructive: "text-danger",
+    },
+  },
+  defaultVariants: { variant: "default" },
+})
+
 function Alert({
   className,
-  variant,
+  variant = "default",
+  icon,
+  children,
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof alertVariants>) {
+}: React.ComponentProps<"div"> &
+  VariantProps<typeof alertVariants> & { icon?: React.ReactNode }) {
   return (
     <div
       data-slot="alert"
       role="alert"
       className={cn(alertVariants({ variant }), className)}
       {...props}
-    />
+    >
+      {icon ? (
+        <span aria-hidden className={cn(iconVariants({ variant }))}>
+          {icon}
+        </span>
+      ) : null}
+      <div className="min-w-0 flex-1 space-y-1">{children}</div>
+    </div>
   )
 }
 
-function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
+function AlertTitle({ className, ...props }: React.ComponentProps<"p">) {
   return (
-    <div
+    <p
       data-slot="alert-title"
-      className={cn(
-        "font-medium group-has-[>svg]/alert:col-start-2 [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground",
-        className
-      )}
+      className={cn("text-label font-semibold text-foreground", className)}
       {...props}
     />
   )
 }
 
-function AlertDescription({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function AlertDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="alert-description"
       className={cn(
-        "text-sm text-balance text-muted-foreground md:text-pretty [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground [&_p:not(:last-child)]:mb-4",
+        "text-body-sm text-foreground-secondary [&_a]:underline [&_a]:underline-offset-2",
         className
       )}
       {...props}
@@ -67,7 +91,7 @@ function AlertAction({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="alert-action"
-      className={cn("absolute top-2 right-2", className)}
+      className={cn("flex items-center gap-2 pt-1", className)}
       {...props}
     />
   )
