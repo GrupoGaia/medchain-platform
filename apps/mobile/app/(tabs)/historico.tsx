@@ -1,4 +1,5 @@
-import { View, ScrollView, SafeAreaView } from "react-native";
+import { View, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Card, EmptyState, SectionLabel, Text } from "../../src/components";
 import { ShieldCheck, ShieldOff, ShieldX, Activity } from "lucide-react-native";
 import { useAppStore } from "../../src/context/AppStore";

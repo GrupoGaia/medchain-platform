@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { View, TouchableOpacity, ScrollView, SafeAreaView, Linking, Alert } from "react-native";
+import { View, TouchableOpacity, ScrollView, Linking, Alert } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../src/components";
 import { useRouter } from "expo-router";
 import { Shield, FileText, Bell } from "lucide-react-native";

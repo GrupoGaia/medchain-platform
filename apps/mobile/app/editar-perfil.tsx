@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   View,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
@@ -10,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { X, Plus, ArrowLeft } from "lucide-react-native";
 import { SectionLabel, Text } from "../src/components";

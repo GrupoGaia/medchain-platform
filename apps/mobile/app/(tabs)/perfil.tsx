@@ -1,9 +1,9 @@
 import { useState, useCallback } from "react";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   View,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   Linking,
   Alert,

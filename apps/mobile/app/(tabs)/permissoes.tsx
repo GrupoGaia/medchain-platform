@@ -1,4 +1,5 @@
-import { View, ScrollView, SafeAreaView, TouchableOpacity } from "react-native";
+import { View, ScrollView, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Card, EmptyState, SectionLabel, Text } from "../../src/components";
 import emptyAccess from "../../assets/img/empty-access.png";
 import { useRouter } from "expo-router";
