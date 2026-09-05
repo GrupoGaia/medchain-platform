@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
+import { resetRateLimits } from "@/lib/rate-limit";
+import { SEARCH_RATE_LIMIT } from "./rate-limit-policy";
 
 type DemoUser = {
   id: string;
@@ -44,11 +46,17 @@ function search(cpf: string) {
   );
 }
 
+const OTHER_DOCTOR: DemoUser = {
+  id: "55555555-5555-4555-8555-555555555555",
+  professionalProfile: { id: "66666666-6666-4666-8666-666666666666" },
+};
+
 beforeEach(() => {
   state.currentUser = null;
   state.patientsByCpf = new Map([
     ["52998224725", { id: "11111111-1111-4111-8111-111111111111", fullName: "João Batista" }],
   ]);
+  resetRateLimits();
 });
 
 describe("GET /api/patients/search", () => {
@@ -108,5 +116,62 @@ describe("GET /api/patients/search", () => {
 
     const body = await (await GET(search("52998224725"))).json();
     expect(Array.isArray(body)).toBe(false);
+  });
+});
+
+// Quem tem uma lista de CPFs consegue descobrir, um a um, quais deles sao
+// pacientes da plataforma. O CPF exato ja limita muito, mas nao limita o ritmo.
+describe("GET /api/patients/search: limite de tentativas", () => {
+  it("blocks the attempt right after the limit and says when to retry", async () => {
+    state.currentUser = DOCTOR;
+    const { GET } = await import("./route");
+
+    for (let i = 0; i < SEARCH_RATE_LIMIT.limit; i++) {
+      expect((await GET(search("52998224725"))).status).toBe(200);
+    }
+
+    const blocked = await GET(search("52998224725"));
+    expect(blocked.status).toBe(429);
+    expect(Number(blocked.headers.get("Retry-After"))).toBeGreaterThan(0);
+  });
+
+  // Uma sequencia de CPFs que nao existem e exatamente o formato de uma
+  // varredura, entao a tentativa sem resultado tem de contar igual.
+  it("counts attempts that found nobody", async () => {
+    state.currentUser = DOCTOR;
+    const { GET } = await import("./route");
+
+    for (let i = 0; i < SEARCH_RATE_LIMIT.limit; i++) {
+      expect((await GET(search("111.444.777-35"))).status).toBe(404);
+    }
+
+    expect((await GET(search("52998224725"))).status).toBe(429);
+  });
+
+  it("keeps the budget separate for each doctor", async () => {
+    const { GET } = await import("./route");
+
+    state.currentUser = DOCTOR;
+    for (let i = 0; i < SEARCH_RATE_LIMIT.limit; i++) {
+      await GET(search("52998224725"));
+    }
+    expect((await GET(search("52998224725"))).status).toBe(429);
+
+    state.currentUser = OTHER_DOCTOR;
+    expect((await GET(search("52998224725"))).status).toBe(200);
+  });
+
+  // O limite e por medico, entao ele so pode ser cobrado depois de saber quem
+  // esta chamando. Senao um anonimo gastaria a cota de alguem.
+  it("does not spend anyone's budget on requests that never authenticated", async () => {
+    const { GET } = await import("./route");
+
+    state.currentUser = null;
+    for (let i = 0; i < SEARCH_RATE_LIMIT.limit * 2; i++) {
+      expect((await GET(search("52998224725"))).status).toBe(401);
+    }
+
+    state.currentUser = DOCTOR;
+    expect((await GET(search("52998224725"))).status).toBe(200);
   });
 });

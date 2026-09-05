@@ -156,9 +156,6 @@ importers:
       react-dom:
         specifier: ^19.2.0
         version: 19.2.6(react@19.2.6)
-      shadcn:
-        specifier: ^4.12.0
-        version: 4.12.0(typescript@5.9.3)
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0
@@ -211,6 +208,9 @@ importers:
       prisma:
         specifier: 6.19.3
         version: 6.19.3(typescript@5.9.3)
+      shadcn:
+        specifier: ^4.12.0
+        version: 4.12.0(typescript@5.9.3)
       tailwindcss:
         specifier: ^3.4.17
         version: 3.4.19(tsx@4.22.0)(yaml@2.9.0)

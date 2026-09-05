@@ -2,12 +2,22 @@ import { Tabs } from "expo-router";
 import { Home, Clock, ShieldCheck, User, FileText } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "@medchain/ui-tokens";
+import { AwaitingApproval } from "../../src/components";
 import { useAppStore } from "../../src/context/AppStore";
+import { useAuth } from "../../src/context/AuthProvider";
 
 export default function TabsLayout() {
-  const { pendingRequests } = useAppStore();
+  const { pendingRequests, awaitingContactApproval } = useAppStore();
+  const { signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const pendingCount = pendingRequests.length;
+
+  // O corte é aqui, e não dentro de cada aba, porque contato pendente não tem
+  // dado nenhum: as cinco abas navegariam entre telas vazias. Uma tela só,
+  // sem barra de abas, diz o que está acontecendo e oferece a única ação útil.
+  if (awaitingContactApproval) {
+    return <AwaitingApproval onSignOut={signOut} />;
+  }
 
   // A altura da barra soma o inset de baixo. Fixar um valor sozinho fazia a
   // barra de gestos do Android passar por cima dos rotulos das abas.

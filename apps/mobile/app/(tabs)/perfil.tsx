@@ -55,26 +55,15 @@ export default function PerfilScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<PatientProfileResponse | null>(null);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
-  const [awaitingApproval, setAwaitingApproval] = useState(false);
 
+  // A espera do contato de emergência é tratada no layout das abas, que troca
+  // as cinco telas por um aviso único. Aqui basta não quebrar quando o perfil
+  // não carrega.
   const loadProfile = useCallback(() => {
     api
       .getMyProfile()
-      .then((loaded) => {
-        setProfile(loaded);
-        setAwaitingApproval(false);
-      })
-      .catch(async () => {
-        // Contato ainda nao aprovado nao gerencia paciente nenhum, entao toda
-        // rota de paciente devolve 403. Os vinculos dele proprio continuam
-        // legiveis, e sao o que diz se o pedido esta so aguardando resposta.
-        try {
-          const links = await api.getMyContactLinks();
-          setAwaitingApproval(links.some((link) => link.status === "PENDING"));
-        } catch {
-          setAwaitingApproval(false);
-        }
-      });
+      .then(setProfile)
+      .catch(() => setProfile(null));
   }, []);
 
   // useFocusEffect e nao useEffect: ao voltar da tela de edicao a aba nao
@@ -102,35 +91,6 @@ export default function PerfilScreen() {
       { text: "Cancelar", style: "cancel" },
       { text: "Sair", style: "destructive", onPress: () => signOut() },
     ]);
-  }
-
-  if (awaitingApproval) {
-    return (
-      <Screen center>
-        <View className="items-center">
-          <View className="mb-4 h-14 w-14 items-center justify-center rounded-full bg-warning-subtle border border-warning-border">
-            <UserPlus size={24} color={colors.status.warning.fg} />
-          </View>
-          <Text
-            accessibilityRole="header"
-            className="text-center text-section-title font-semibold text-foreground"
-          >
-            Aguardando o paciente
-          </Text>
-          <Text className="mt-2 text-center text-body-sm text-foreground-tertiary">
-            Seu pedido para ser contato de emergência foi enviado. Até o paciente
-            aceitar, você não tem acesso aos dados dele.
-          </Text>
-          <Button
-            className="mt-8"
-            label="Sair"
-            variant="destructive"
-            icon={<LogOut size={16} color={colors.status.danger.fg} />}
-            onPress={confirmSignOut}
-          />
-        </View>
-      </Screen>
-    );
   }
 
   if (!profile) {

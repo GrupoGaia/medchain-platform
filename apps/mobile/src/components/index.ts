@@ -10,6 +10,7 @@ export { Field } from "./field";
 export { InfoRow } from "./info-row";
 export { ListRow, RowDivider } from "./list-row";
 export { EmptyState } from "./empty-state";
+export { AwaitingApproval } from "./awaiting-approval";
 export { StatusBadge, toneForTokenStatus, type StatusTone } from "./status-badge";
 export { AccessCountdown, urgencyFor, type AccessUrgency } from "./access-countdown";
 export { ExamResultsTable } from "./exam-results-table";
