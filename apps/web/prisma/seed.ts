@@ -1,10 +1,18 @@
 import { PrismaClient } from "@prisma/client";
-import { faker } from "@faker-js/faker/locale/pt_BR";
 import { createClient } from "@supabase/supabase-js";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { buildDemoPdf } from "./demo-pdf";
+import { buildDemoPdf, type DemoPdfResultRow } from "./demo-pdf";
+import { IMAGING, PRESCRIPTIONS, REPORTS, type NarrativeDoc } from "./clinical-data";
+import { DEMO_PATIENTS, type PatientPlan } from "./demo-patients";
+import {
+  buildPanelResults,
+  formatReference,
+  formatResultValue,
+  panelTitle,
+  type GeneratedResult,
+} from "./demo-values";
 import { MEDICAL_DOCUMENT_BUCKET, buildMedicalDocumentStorageKey } from "../lib/document-upload";
 
 function loadEnvFile(fileName: string, override = false) {
@@ -80,7 +88,7 @@ async function getOrCreateAuthUser(
   // Usuário já existe, buscar UUID real
   const { data: list } = await supabaseAdmin.auth.admin.listUsers({
     page: 1,
-    perPage: 50,
+    perPage: 200,
   });
   const existing = list?.users.find((u) => u.email === email);
   if (!existing) {
@@ -122,10 +130,136 @@ async function emptyMedicalDocumentsBucket(): Promise<void> {
   if (removeError) throw new Error(`Erro ao limpar o bucket: ${removeError.message}`);
 }
 
+// ── Utilitários de tempo e concorrência ─────────────────────────────────────
+
+const NOW = new Date();
+
+/**
+ * Data de N meses atrás, com dia e hora estáveis derivados da própria
+ * distância. Evita que todos os documentos caiam no mesmo dia do mês.
+ */
+function monthsAgo(months: number, offsetDays = 0): Date {
+  const date = new Date(NOW);
+  date.setMonth(date.getMonth() - months);
+  date.setDate(Math.min(28, 3 + ((months * 7 + offsetDays) % 25)));
+  date.setHours(8 + (months % 9), (months * 13) % 60, 0, 0);
+  return date;
+}
+
+/**
+ * Executa em lotes. O bucket local aguenta o volume, mas disparar cento e
+ * poucos uploads de uma vez faz o Storage devolver erro de conexão.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+
+  async function run(): Promise<void> {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await worker(items[index], index);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run));
+  return results;
+}
+
+function isOutOfRange(result: GeneratedResult): boolean {
+  return result.value < result.referenceMin || result.value > result.referenceMax;
+}
+
+function toPdfRows(results: GeneratedResult[]): DemoPdfResultRow[] {
+  return results.map((result) => ({
+    analyte: result.analyte,
+    value: formatResultValue(result.value, result.unit),
+    unit: result.unit,
+    reference: formatReference(result),
+    outOfRange: isOutOfRange(result),
+  }));
+}
+
+// ── Documentos planejados antes de ir para o banco ──────────────────────────
+
+interface PlannedDocument {
+  id: string;
+  patientIndex: number;
+  title: string;
+  type: "EXAM" | "REPORT" | "PRESCRIPTION" | "IMAGING";
+  issuedAt: Date;
+  results: GeneratedResult[];
+  body?: string[];
+}
+
+const NARRATIVE_CATALOGUES: Record<string, Record<string, NarrativeDoc>> = {
+  report: REPORTS,
+  imaging: IMAGING,
+  rx: PRESCRIPTIONS,
+};
+
+function resolveNarrative(key: string): NarrativeDoc {
+  const [prefix, name] = key.split(":");
+  const catalogue = NARRATIVE_CATALOGUES[prefix];
+  const doc = catalogue?.[name];
+  if (!doc) throw new Error(`Documento narrativo desconhecido no seed: ${key}`);
+  return doc;
+}
+
+function planDocuments(plan: PatientPlan, patientIndex: number): PlannedDocument[] {
+  const documents: PlannedDocument[] = [];
+
+  plan.collections.forEach((months, collectionIndex) => {
+    const isLatest = collectionIndex === plan.collections.length - 1;
+    const panels = isLatest
+      ? [...plan.panels, ...(plan.panelsLatestOnly ?? [])]
+      : plan.panels;
+
+    panels.forEach((panelKey, panelIndex) => {
+      const issuedAt = monthsAgo(months, panelIndex);
+      const results = buildPanelResults({
+        panelKey,
+        sex: plan.sex,
+        patientKey: plan.cpf,
+        collectedAt: issuedAt,
+        collectionIndex,
+        overrides: plan.overrides,
+      });
+
+      documents.push({
+        id: randomUUID(),
+        patientIndex,
+        title: panelTitle(panelKey),
+        type: "EXAM",
+        issuedAt,
+        results,
+      });
+    });
+  });
+
+  plan.narratives.forEach((narrative, index) => {
+    const doc = resolveNarrative(narrative.key);
+    documents.push({
+      id: randomUUID(),
+      patientIndex,
+      title: doc.title,
+      type: doc.type,
+      issuedAt: monthsAgo(narrative.monthsAgo, index * 3),
+      results: [],
+      body: doc.body,
+    });
+  });
+
+  return documents;
+}
+
 async function main() {
   console.log("Iniciando seed...");
 
-  // Verificar variáveis de ambiente necessárias
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !(process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY)
@@ -148,21 +282,26 @@ async function main() {
   await emptyMedicalDocumentsBucket();
 
   // ── Instituições ──────────────────────────────────────────────────────────
-  const [hospSaoLucas, upaCentro] = await Promise.all([
-    prisma.institution.create({
-      data: { name: "Hospital São Lucas", type: "HOSPITAL", cnpj: "12.345.678/0001-90" },
-    }),
-    prisma.institution.create({
-      data: { name: "UPA Centro", type: "CLINIC", cnpj: "98.765.432/0001-10" },
-    }),
-  ]);
+  const institutionSeeds = [
+    { name: "Hospital São Lucas", type: "HOSPITAL", cnpj: "12.345.678/0001-90" },
+    { name: "UPA Centro", type: "CLINIC", cnpj: "98.765.432/0001-10" },
+    { name: "Instituto do Coração Aliança", type: "HOSPITAL", cnpj: "45.678.912/0001-33" },
+    { name: "Laboratório Diagnóstico Central", type: "LAB", cnpj: "23.456.789/0001-77" },
+  ];
+
+  const institutions = await Promise.all(
+    institutionSeeds.map((i) => prisma.institution.create({ data: i }))
+  );
+  const [hospSaoLucas, upaCentro, institutoAlianca, laboratorioCentral] = institutions;
 
   // ── Médicos ───────────────────────────────────────────────────────────────
-  // Emails fixos para que o login da demo seja reproduzível
+  // Emails fixos para que o login da demo seja reproduzível.
   const doctorSeeds = [
-    { name: "Dr. Carlos Silva",  email: "carlos.silva@medchain.demo",  crm: "CRM-SP 123456", specialty: "Cardiologia",    instId: hospSaoLucas.id },
-    { name: "Dra. Ana Ferreira", email: "ana.ferreira@medchain.demo",  crm: "CRM-SP 654321", specialty: "Clínica Geral",  instId: upaCentro.id },
-    { name: "Dr. Paulo Mendes",  email: "paulo.mendes@medchain.demo",  crm: "CRM-SP 111222", specialty: "Endocrinologia", instId: hospSaoLucas.id },
+    { name: "Dr. Carlos Silva",   email: "carlos.silva@medchain.demo",   crm: "CRM-SP 123456", specialty: "Cardiologia",    instId: hospSaoLucas.id },
+    { name: "Dra. Ana Ferreira",  email: "ana.ferreira@medchain.demo",   crm: "CRM-SP 654321", specialty: "Clínica Geral",  instId: upaCentro.id },
+    { name: "Dr. Paulo Mendes",   email: "paulo.mendes@medchain.demo",   crm: "CRM-SP 111222", specialty: "Endocrinologia", instId: hospSaoLucas.id },
+    { name: "Dra. Renata Aoki",   email: "renata.aoki@medchain.demo",    crm: "CRM-SP 334455", specialty: "Nefrologia",     instId: institutoAlianca.id },
+    { name: "Dr. Sérgio Vilela",  email: "sergio.vilela@medchain.demo",  crm: "CRM-SP 778899", specialty: "Radiologia",     instId: laboratorioCentral.id },
   ];
 
   const doctors = await Promise.all(
@@ -181,403 +320,392 @@ async function main() {
           verified: true,
         },
       });
-      return { user, profile };
+      const institution = institutions.find((i) => i.id === d.instId)!;
+      return { user, profile, institution };
     })
   );
 
   // ── Pacientes ─────────────────────────────────────────────────────────────
-  // Emails fixos para pacientes de demo; os demais são fictícios mas determinísticos
-  type ContactSeed = {
-    email?: string;
-    name: string;
-    relation: string;
-    phone: string;
-  };
-
-  type PatientSeed = {
-    email: string;
-    cpf: string;
-    name: string;
-    birthDate: Date;
-    bloodType: string;
-    allergies: string[];
-    chronicConditions: string[];
-    continuousMeds: string[];
-    contacts: ContactSeed[];
-  };
-
-  const patientSeeds: PatientSeed[] = [
-    {
-      email: "joao.batista@exemplo.com",
-      cpf: "52998224725",
-      name: "João Batista",
-      birthDate: new Date("1963-04-15"),
-      bloodType: "A+",
-      allergies: ["Penicilina", "AAS"],
-      chronicConditions: ["Hipertensão arterial", "Pré-diabetes"],
-      continuousMeds: ["Losartana 50mg", "Metformina 850mg"],
-      contacts: [
-        {
-          email: "maria.batista@exemplo.com",
-          name: "Maria Batista",
-          relation: "Filha",
-          phone: "(11) 9 9999-0001",
-        },
-        {
-          email: "pedro.batista@exemplo.com",
-          name: "Pedro Batista",
-          relation: "Filho",
-          phone: "(11) 9 9999-0002",
-        },
-      ],
-    },
-    {
-      email: "paciente2@medchain.demo",
-      cpf: "11144477735",
-      name: faker.person.fullName(),
-      birthDate: faker.date.birthdate({ min: 50, max: 80, mode: "age" }),
-      bloodType: faker.helpers.arrayElement(["A+", "A-", "B+", "O+", "O-"]),
-      allergies: [faker.helpers.arrayElement(["Dipirona", "Ibuprofeno", "Sulfa"])],
-      chronicConditions: [faker.helpers.arrayElement(["Diabetes tipo 2", "Asma", "Artrite reumatoide"])],
-      continuousMeds: ["Metformina 500mg"],
-      contacts: [{ name: faker.person.fullName(), relation: "Cônjuge", phone: faker.phone.number() }],
-    },
-    {
-      email: "paciente3@medchain.demo",
-      cpf: "39053344705",
-      name: faker.person.fullName(),
-      birthDate: faker.date.birthdate({ min: 40, max: 70, mode: "age" }),
-      bloodType: faker.helpers.arrayElement(["B+", "O+", "AB-"]),
-      allergies: [] as string[],
-      chronicConditions: ["Hipertensão arterial"],
-      continuousMeds: ["Atenolol 25mg"],
-      contacts: [{ name: faker.person.fullName(), relation: "Filho(a)", phone: faker.phone.number() }],
-    },
-    {
-      email: "paciente4@medchain.demo",
-      cpf: "16899560461",
-      name: faker.person.fullName(),
-      birthDate: faker.date.birthdate({ min: 60, max: 85, mode: "age" }),
-      bloodType: faker.helpers.arrayElement(["O+", "A+"]),
-      allergies: ["Contraste iodado"],
-      chronicConditions: ["Doença renal crônica", "Hipertensão arterial"],
-      continuousMeds: ["Furosemida 40mg", "Anlodipino 5mg"],
-      contacts: [
-        { name: faker.person.fullName(), relation: "Filha",  phone: faker.phone.number() },
-        { name: faker.person.fullName(), relation: "Filho",  phone: faker.phone.number() },
-      ],
-    },
-    {
-      email: "paciente5@medchain.demo",
-      cpf: "23344556606",
-      name: faker.person.fullName(),
-      birthDate: faker.date.birthdate({ min: 55, max: 75, mode: "age" }),
-      bloodType: "B+",
-      allergies: ["Penicilina"],
-      chronicConditions: ["Diabetes tipo 1", "Retinopatia diabética"],
-      continuousMeds: ["Insulina Glargina", "Metformina 850mg"],
-      contacts: [{ name: faker.person.fullName(), relation: "Cônjuge", phone: faker.phone.number() }],
-    },
-  ];
-
   const patients = await Promise.all(
-    patientSeeds.map(async (p) => {
-      const authId = await getOrCreateAuthUser(p.email, p.name, "PATIENT");
+    DEMO_PATIENTS.map(async (plan) => {
+      const authId = await getOrCreateAuthUser(plan.email, plan.name, "PATIENT");
       const user = await prisma.user.create({
-        data: { authId, email: p.email, role: "PATIENT" },
+        data: { authId, email: plan.email, role: "PATIENT" },
       });
       const profile = await prisma.patientProfile.create({
         data: {
           userId: user.id,
-          fullName: p.name,
-          cpf: p.cpf,
-          birthDate: p.birthDate,
-          bloodType: p.bloodType,
-          allergies: p.allergies,
-          chronicConditions: p.chronicConditions,
-          continuousMeds: p.continuousMeds,
+          fullName: plan.name,
+          cpf: plan.cpf,
+          birthDate: new Date(plan.birthDate),
+          gender: plan.gender,
+          bloodType: plan.bloodType,
+          allergies: plan.allergies,
+          chronicConditions: plan.chronicConditions,
+          continuousMeds: plan.continuousMeds,
         },
       });
-      await Promise.all(
-        p.contacts.map(async (c) => {
-          let contactUserId: string | undefined;
 
-          if (c.email) {
-            const contactAuthId = await getOrCreateAuthUser(c.email, c.name, "EMERGENCY_CONTACT");
-            const contactUser = await prisma.user.create({
-              data: { authId: contactAuthId, email: c.email, role: "EMERGENCY_CONTACT" },
-            });
-            contactUserId = contactUser.id;
-          }
+      for (const contact of plan.contacts) {
+        let contactUserId: string | undefined;
 
-          return prisma.emergencyContact.create({
-            data: {
-              patientId: profile.id,
-              userId: contactUserId,
-              name: c.name,
-              relation: c.relation,
-              phone: c.phone,
-              // O vinculo nasce PENDING por default. Na demo os contatos ja
-              // sao de confianca do paciente, entao entram aprovados, senao a
-              // Maria e o Pedro perdem o acesso a cada reseed.
-              status: "APPROVED",
-              respondedAt: new Date(),
-            },
+        if (contact.email) {
+          const contactAuthId = await getOrCreateAuthUser(
+            contact.email,
+            contact.name,
+            "EMERGENCY_CONTACT"
+          );
+          const contactUser = await prisma.user.create({
+            data: { authId: contactAuthId, email: contact.email, role: "EMERGENCY_CONTACT" },
           });
-        })
-      );
-      return { user, profile };
+          contactUserId = contactUser.id;
+        }
+
+        await prisma.emergencyContact.create({
+          data: {
+            patientId: profile.id,
+            userId: contactUserId,
+            name: contact.name,
+            relation: contact.relation,
+            phone: contact.phone,
+            // O vinculo nasce PENDING por default. Na demo os contatos ja
+            // sao de confianca do paciente, entao entram aprovados, senao a
+            // Maria e o Pedro perdem o acesso a cada reseed.
+            status: "APPROVED",
+            respondedAt: new Date(),
+          },
+        });
+      }
+
+      return { plan, user, profile };
     })
   );
 
-  // ── Documentos médicos (21) ───────────────────────────────────────────────
-  const docTemplates: { title: string; type: "EXAM" | "REPORT" | "PRESCRIPTION" | "IMAGING" }[] = [
-    // João Batista: 6 docs
-    { title: "Hemograma completo", type: "EXAM" },
-    { title: "Raio-X de tórax", type: "EXAM" },
-    { title: "Perfil lipídico", type: "EXAM" },
-    { title: "Ecocardiograma", type: "REPORT" },
-    { title: "Receita Losartana + Metformina", type: "PRESCRIPTION" },
-    { title: "Glicemia em jejum", type: "EXAM" },
-    // Paciente 2: 4 docs
-    { title: "Ultrassonografia abdominal", type: "IMAGING" },
-    { title: "Espirometria", type: "REPORT" },
-    { title: "Glicemia em jejum", type: "EXAM" },
-    { title: "HbA1c", type: "EXAM" },
-    // Paciente 3: 4 docs
-    { title: "Eletrocardiograma", type: "REPORT" },
-    { title: "Densitometria óssea", type: "IMAGING" },
-    { title: "Receita Atenolol", type: "PRESCRIPTION" },
-    { title: "Ressonância magnética lombar", type: "IMAGING" },
-    // Paciente 4: 4 docs
-    { title: "Creatinina sérica", type: "EXAM" },
-    { title: "Sumário de urina", type: "EXAM" },
-    { title: "Tomografia de tórax", type: "IMAGING" },
-    { title: "Receita Furosemida", type: "PRESCRIPTION" },
-    // Paciente 5: 3 docs
-    { title: "Fundo de olho", type: "REPORT" },
-    { title: "TSH e T4 livre", type: "EXAM" },
-    { title: "Laudo cirúrgico de apendicectomia", type: "REPORT" },
-  ];
+  // ── Documentos, PDFs e resultados estruturados ────────────────────────────
+  // O médico que assina o documento no PDF varia por paciente, para o cabeçalho
+  // do laudo não repetir o mesmo nome em todo o acervo.
+  const planned = DEMO_PATIENTS.flatMap((plan, index) => planDocuments(plan, index));
+  planned.sort((a, b) => b.issuedAt.getTime() - a.issuedAt.getTime());
 
-  const docsPerPatient = [
-    docTemplates.slice(0, 6),
-    docTemplates.slice(6, 10),
-    docTemplates.slice(10, 14),
-    docTemplates.slice(14, 18),
-    docTemplates.slice(18, 21),
-  ];
+  console.log(`   Gerando ${planned.length} documentos...`);
 
-  const createdDocuments = await Promise.all(
-    patients.flatMap(({ profile }, pi) =>
-      docsPerPatient[pi].map(async (doc) => {
-        const issuedAt = faker.date.recent({ days: 180 });
-        const docId = randomUUID();
-        const pdf = buildDemoPdf({
-          title: doc.title,
-          patientName: profile.fullName,
-          type: doc.type,
-          issuedAt,
-        });
-        const storageKey = buildMedicalDocumentStorageKey(profile.id, docId, "application/pdf");
+  await mapWithConcurrency(planned, 8, async (doc) => {
+    const { profile, plan } = patients[doc.patientIndex];
+    const signer = doctors[doc.patientIndex % doctors.length];
 
-        const { error: uploadError } = await supabaseAdmin.storage
-          .from(MEDICAL_DOCUMENT_BUCKET)
-          .upload(storageKey, pdf, { contentType: "application/pdf", upsert: true });
-        if (uploadError) {
-          throw new Error(`Upload de "${doc.title}" falhou: ${uploadError.message}`);
-        }
+    const pdf = buildDemoPdf({
+      title: doc.title,
+      patientName: profile.fullName,
+      type: doc.type,
+      issuedAt: doc.issuedAt,
+      patientBirthDate: new Date(plan.birthDate),
+      patientId: profile.id.slice(0, 8).toUpperCase(),
+      requestedBy: `${signer.profile.fullName} — ${signer.profile.crm}`,
+      institution: signer.institution.name,
+      results: doc.results.length > 0 ? toPdfRows(doc.results) : undefined,
+      body: doc.body,
+    });
 
-        return prisma.medicalDocument.create({
-          data: {
-            id: docId,
-            patientId: profile.id,
-            title: doc.title,
-            type: doc.type,
-            storageKey,
-            mimeType: "application/pdf",
-            issuedAt,
-          },
-        });
-      })
-    )
-  );
+    const storageKey = buildMedicalDocumentStorageKey(profile.id, doc.id, "application/pdf");
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(MEDICAL_DOCUMENT_BUCKET)
+      .upload(storageKey, pdf, { contentType: "application/pdf", upsert: true });
+    if (uploadError) {
+      throw new Error(`Upload de "${doc.title}" falhou: ${uploadError.message}`);
+    }
 
-  // ── Resultados de exame (apenas João Batista) ─────────────────────────────
-  // Valores escolhidos para bater com o perfil dele: hipertensao e pre-diabetes.
-  const examResultsByTitle: Record<
-    string,
-    { analyte: string; value: number; unit: string; referenceMin: number; referenceMax: number }[]
-  > = {
-    "Hemograma completo": [
-      { analyte: "Hemoglobina", value: 14.2, unit: "g/dL", referenceMin: 13, referenceMax: 17 },
-      { analyte: "Hematócrito", value: 42, unit: "%", referenceMin: 39, referenceMax: 50 },
-      { analyte: "Leucócitos", value: 7200, unit: "/mm3", referenceMin: 4000, referenceMax: 11000 },
-      { analyte: "Plaquetas", value: 245000, unit: "/mm3", referenceMin: 150000, referenceMax: 450000 },
-    ],
-    "Perfil lipídico": [
-      { analyte: "Colesterol total", value: 214, unit: "mg/dL", referenceMin: 0, referenceMax: 190 },
-      { analyte: "LDL", value: 142, unit: "mg/dL", referenceMin: 0, referenceMax: 130 },
-      { analyte: "HDL", value: 38, unit: "mg/dL", referenceMin: 40, referenceMax: 100 },
-      { analyte: "Triglicerídeos", value: 189, unit: "mg/dL", referenceMin: 0, referenceMax: 150 },
-    ],
-    "Glicemia em jejum": [
-      { analyte: "Glicose", value: 114, unit: "mg/dL", referenceMin: 70, referenceMax: 99 },
-    ],
-  };
+    await prisma.medicalDocument.create({
+      data: {
+        id: doc.id,
+        patientId: profile.id,
+        title: doc.title,
+        type: doc.type,
+        storageKey,
+        mimeType: "application/pdf",
+        issuedAt: doc.issuedAt,
+      },
+    });
 
-  const joaoProfileId = patients[0].profile.id;
-  const joaoExamDocuments = createdDocuments.filter(
-    (doc) => doc.patientId === joaoProfileId && examResultsByTitle[doc.title] !== undefined
-  );
-
-  await Promise.all(
-    joaoExamDocuments.flatMap((doc) =>
-      examResultsByTitle[doc.title].map((result) =>
-        prisma.examResult.create({
-          data: {
-            documentId: doc.id,
-            analyte: result.analyte,
-            value: result.value,
-            unit: result.unit,
-            referenceMin: result.referenceMin,
-            referenceMax: result.referenceMax,
-          },
-        })
-      )
-    )
-  );
-
-  // ── Solicitações e tokens ─────────────────────────────────────────────────
-  const [dr0, dr1] = doctors;
-  const joao = patients[0];
-  const now = new Date();
-
-  // 1. Aprovada + token ativo (demo imediata)
-  const approvedReq = await prisma.accessRequest.create({
-    data: {
-      patientId: joao.profile.id,
-      professionalId: dr0.profile.id,
-      requestedById: dr0.user.id,
-      status: "APPROVED",
-      scope: "FULL",
-      durationMinutes: 60,
-      reason: "Consulta de retorno para avaliação cardiológica",
-      channelType: "WEB_PORTAL",
-    },
+    if (doc.results.length > 0) {
+      await prisma.examResult.createMany({
+        data: doc.results.map((result) => ({
+          documentId: doc.id,
+          analyte: result.analyte,
+          value: result.value,
+          unit: result.unit,
+          referenceMin: result.referenceMin,
+          referenceMax: result.referenceMax,
+        })),
+      });
+    }
   });
 
-  const activeToken = await prisma.accessToken.create({
-    data: {
-      requestId: approvedReq.id,
-      patientId: joao.profile.id,
-      professionalId: dr0.profile.id,
-      status: "ACTIVE",
-      scope: "FULL",
-      expiresAt: new Date(now.getTime() + 45 * 60_000),
-    },
+  // ── Solicitações, tokens e auditoria ──────────────────────────────────────
+  const [drCarlos, draAna, drPaulo, draRenata] = doctors;
+  const [joao, helena, rubens] = patients;
+
+  const auditLogs: {
+    tokenId?: string;
+    actorUserId: string;
+    patientId: string;
+    eventType: string;
+    channel: "WEB_PORTAL" | "MOBILE_APP";
+    createdAt: Date;
+  }[] = [];
+
+  /** Cria solicitação, token e o par de logs que todo acesso concedido gera. */
+  async function grantAccess(input: {
+    patient: (typeof patients)[number];
+    doctor: (typeof doctors)[number];
+    scope: "FULL" | "EMERGENCY" | "EXAMS" | "PRESCRIPTIONS";
+    durationMinutes: number;
+    reason: string;
+    status: "ACTIVE" | "EXPIRED" | "REVOKED";
+    /** Minutos atrás em que o paciente aprovou. */
+    approvedMinutesAgo: number;
+    channel?: "WEB_PORTAL" | "MOBILE_APP";
+    /** Quantas aberturas do prontuário registrar. */
+    accessCount?: number;
+  }) {
+    const approvedAt = new Date(NOW.getTime() - input.approvedMinutesAgo * 60_000);
+    const expiresAt = new Date(approvedAt.getTime() + input.durationMinutes * 60_000);
+
+    const request = await prisma.accessRequest.create({
+      data: {
+        patientId: input.patient.profile.id,
+        professionalId: input.doctor.profile.id,
+        requestedById: input.doctor.user.id,
+        status: input.status === "REVOKED" ? "APPROVED" : input.status === "ACTIVE" ? "APPROVED" : "EXPIRED",
+        scope: input.scope,
+        durationMinutes: input.durationMinutes,
+        reason: input.reason,
+        channelType: input.channel ?? "WEB_PORTAL",
+        createdAt: new Date(approvedAt.getTime() - 8 * 60_000),
+      },
+    });
+
+    const token = await prisma.accessToken.create({
+      data: {
+        requestId: request.id,
+        patientId: input.patient.profile.id,
+        professionalId: input.doctor.profile.id,
+        status: input.status,
+        scope: input.scope,
+        expiresAt,
+        revokedAt: input.status === "REVOKED" ? new Date(expiresAt.getTime() - 10 * 60_000) : null,
+        createdAt: approvedAt,
+      },
+    });
+
+    auditLogs.push({
+      tokenId: token.id,
+      actorUserId: input.patient.user.id,
+      patientId: input.patient.profile.id,
+      eventType: "APPROVE",
+      channel: "MOBILE_APP",
+      createdAt: approvedAt,
+    });
+
+    for (let i = 0; i < (input.accessCount ?? 1); i += 1) {
+      auditLogs.push({
+        tokenId: token.id,
+        actorUserId: input.doctor.user.id,
+        patientId: input.patient.profile.id,
+        eventType: "ACCESS",
+        channel: "WEB_PORTAL",
+        createdAt: new Date(approvedAt.getTime() + (i + 1) * 4 * 60_000),
+      });
+    }
+
+    if (input.status === "REVOKED") {
+      auditLogs.push({
+        tokenId: token.id,
+        actorUserId: input.patient.user.id,
+        patientId: input.patient.profile.id,
+        eventType: "REVOKE",
+        channel: "MOBILE_APP",
+        createdAt: new Date(expiresAt.getTime() - 10 * 60_000),
+      });
+    }
+
+    return { request, token };
+  }
+
+  const MINUTES_PER_DAY = 24 * 60;
+
+  // 1. Acesso válido agora, para a demo abrir o prontuário direto.
+  const { token: activeToken } = await grantAccess({
+    patient: joao,
+    doctor: drCarlos,
+    scope: "FULL",
+    durationMinutes: 60,
+    reason: "Consulta de retorno para avaliação cardiológica",
+    status: "ACTIVE",
+    approvedMinutesAgo: 15,
+    accessCount: 2,
   });
 
-  // 2. Pendente (para demo de aprovação no mobile)
+  // 2. Pendente, para a demo de aprovação no aplicativo.
   await prisma.accessRequest.create({
     data: {
       patientId: joao.profile.id,
-      professionalId: dr1.profile.id,
-      requestedById: dr1.user.id,
+      professionalId: draAna.profile.id,
+      requestedById: draAna.user.id,
       status: "PENDING",
       scope: "EMERGENCY",
       durationMinutes: 30,
       reason: "Atendimento de urgência na UPA",
       channelType: "WEB_PORTAL",
+      createdAt: new Date(NOW.getTime() - 6 * 60_000),
     },
   });
 
-  // 3. Expirada (para histórico de auditoria)
-  const expiredReq = await prisma.accessRequest.create({
+  // 3. Histórico do João: acessos anteriores, um deles revogado por ele.
+  await grantAccess({
+    patient: joao,
+    doctor: drPaulo,
+    scope: "EXAMS",
+    durationMinutes: 120,
+    reason: "Avaliação endocrinológica do perfil glicêmico",
+    status: "EXPIRED",
+    approvedMinutesAgo: 6 * MINUTES_PER_DAY,
+    accessCount: 3,
+  });
+
+  await grantAccess({
+    patient: joao,
+    doctor: draRenata,
+    scope: "FULL",
+    durationMinutes: 60,
+    reason: "Parecer sobre função renal",
+    status: "REVOKED",
+    approvedMinutesAgo: 21 * MINUTES_PER_DAY,
+    accessCount: 1,
+  });
+
+  await grantAccess({
+    patient: joao,
+    doctor: drCarlos,
+    scope: "EXAMS",
+    durationMinutes: 30,
+    reason: "Consulta anterior",
+    status: "EXPIRED",
+    approvedMinutesAgo: 48 * MINUTES_PER_DAY,
+    accessCount: 2,
+  });
+
+  // 4. Pedido negado, para o histórico mostrar que negar também fica registrado.
+  const deniedRequest = await prisma.accessRequest.create({
     data: {
       patientId: joao.profile.id,
-      professionalId: dr0.profile.id,
-      requestedById: dr0.user.id,
-      status: "EXPIRED",
-      scope: "EXAMS",
-      durationMinutes: 30,
-      reason: "Consulta anterior",
+      professionalId: draAna.profile.id,
+      requestedById: draAna.user.id,
+      status: "DENIED",
+      scope: "FULL",
+      durationMinutes: 480,
+      reason: "Solicitação de acesso amplo para triagem",
       channelType: "WEB_PORTAL",
+      createdAt: new Date(NOW.getTime() - 33 * MINUTES_PER_DAY * 60_000),
     },
   });
 
-  const expiredToken = await prisma.accessToken.create({
-    data: {
-      requestId: expiredReq.id,
-      patientId: joao.profile.id,
-      professionalId: dr0.profile.id,
-      status: "EXPIRED",
-      scope: "EXAMS",
-      expiresAt: new Date(now.getTime() - 2 * 60 * 60_000),
-    },
+  auditLogs.push({
+    actorUserId: joao.user.id,
+    patientId: joao.profile.id,
+    eventType: "DENY",
+    channel: "MOBILE_APP",
+    createdAt: new Date(deniedRequest.createdAt.getTime() + 12 * 60_000),
   });
 
-  // ── Logs de auditoria ─────────────────────────────────────────────────────
-  await prisma.accessLog.createMany({
-    data: [
-      {
-        tokenId: activeToken.id,
-        actorUserId: joao.user.id,
-        patientId: joao.profile.id,
-        eventType: "APPROVE",
-        channel: "MOBILE_APP",
-        createdAt: new Date(now.getTime() - 15 * 60_000),
-      },
-      {
-        tokenId: activeToken.id,
-        actorUserId: dr0.user.id,
-        patientId: joao.profile.id,
-        eventType: "ACCESS",
-        channel: "WEB_PORTAL",
-        createdAt: new Date(now.getTime() - 10 * 60_000),
-      },
-      {
-        tokenId: expiredToken.id,
-        actorUserId: joao.user.id,
-        patientId: joao.profile.id,
-        eventType: "APPROVE",
-        channel: "MOBILE_APP",
-        createdAt: new Date(now.getTime() - 3 * 60 * 60_000),
-      },
-      {
-        tokenId: expiredToken.id,
-        actorUserId: dr0.user.id,
-        patientId: joao.profile.id,
-        eventType: "ACCESS",
-        channel: "WEB_PORTAL",
-        createdAt: new Date(now.getTime() - 2.5 * 60 * 60_000),
-      },
-    ],
+  // 5. Outros pacientes, para o portal de cada médico não ficar vazio.
+  await grantAccess({
+    patient: helena,
+    doctor: drPaulo,
+    scope: "FULL",
+    durationMinutes: 120,
+    reason: "Ajuste de esquema de insulina",
+    status: "ACTIVE",
+    approvedMinutesAgo: 40,
+    accessCount: 1,
   });
+
+  await grantAccess({
+    patient: rubens,
+    doctor: draRenata,
+    scope: "EXAMS",
+    durationMinutes: 240,
+    reason: "Acompanhamento de doença renal crônica",
+    status: "ACTIVE",
+    approvedMinutesAgo: 25,
+    accessCount: 2,
+  });
+
+  await grantAccess({
+    patient: helena,
+    doctor: draAna,
+    scope: "PRESCRIPTIONS",
+    durationMinutes: 60,
+    reason: "Renovação de receita de uso contínuo",
+    status: "EXPIRED",
+    approvedMinutesAgo: 12 * MINUTES_PER_DAY,
+    accessCount: 1,
+  });
+
+  // 6. Vínculo de contato de emergência aceito, que também é evento de auditoria.
+  auditLogs.push({
+    actorUserId: joao.user.id,
+    patientId: joao.profile.id,
+    eventType: "CONTACT_APPROVE",
+    channel: "MOBILE_APP",
+    createdAt: new Date(NOW.getTime() - 64 * MINUTES_PER_DAY * 60_000),
+  });
+
+  await prisma.accessLog.createMany({ data: auditLogs });
+
+  // ── Resumo ────────────────────────────────────────────────────────────────
+  const [documentCount, resultCount, requestCount, tokenCount, logCount] = await Promise.all([
+    prisma.medicalDocument.count(),
+    prisma.examResult.count(),
+    prisma.accessRequest.count(),
+    prisma.accessToken.count(),
+    prisma.accessLog.count(),
+  ]);
 
   console.log("\nSeed concluído.");
-  console.log(`   Instituições : 2`);
+  console.log(`   Instituições : ${institutions.length}`);
   console.log(`   Médicos      : ${doctors.length}`);
   console.log(`   Pacientes    : ${patients.length}`);
-  console.log(`   Contatos Auth: 2`);
-  console.log(`   Documentos   : ${await prisma.medicalDocument.count()}`);
-  console.log(`   Resultados   : ${await prisma.examResult.count()}`);
-  console.log(`   Solicitações : 3 (1 ativa, 1 pendente, 1 expirada)`);
+  console.log(`   Documentos   : ${documentCount}`);
+  console.log(`   Resultados   : ${resultCount}`);
+  console.log(`   Solicitações : ${requestCount}`);
+  console.log(`   Tokens       : ${tokenCount}`);
+  console.log(`   Auditoria    : ${logCount} eventos`);
+
+  console.log("\nAcervo por paciente:");
+  for (const { plan, profile } of patients) {
+    const docs = await prisma.medicalDocument.count({ where: { patientId: profile.id } });
+    console.log(`   ${plan.name.padEnd(28)} ${String(docs).padStart(3)} documentos`);
+  }
+
   console.log("\nIDs para demo:");
   console.log(`   João Batista (patientProfileId) : ${joao.profile.id}`);
-  console.log(`   João Batista (userId)            : ${joao.user.id}`);
-  console.log(`   Dr. Carlos Silva (profileId)     : ${dr0.profile.id}`);
-  console.log(`   Dra. Ana Ferreira (profileId)    : ${dr1.profile.id}`);
   console.log(`   Token ativo (tokenId)            : ${activeToken.id}`);
+
   console.log("\nCredenciais de demo (senha: medchain123):");
-  console.log("   carlos.silva@medchain.demo    (médico, Cardiologia)");
-  console.log("   ana.ferreira@medchain.demo    (médico, Clínica Geral)");
-  console.log("   paulo.mendes@medchain.demo    (médico, Endocrinologia)");
-  console.log("   joao.batista@exemplo.com      (paciente)");
-  console.log("   maria.batista@exemplo.com     (contato de emergência)");
-  console.log("   pedro.batista@exemplo.com     (contato de emergência)");
+  for (const d of doctorSeeds) {
+    console.log(`   ${d.email.padEnd(32)} (médico, ${d.specialty})`);
+  }
+  for (const plan of DEMO_PATIENTS) {
+    console.log(`   ${plan.email.padEnd(32)} (paciente)`);
+  }
+  console.log("   maria.batista@exemplo.com        (contato de emergência)");
+  console.log("   pedro.batista@exemplo.com        (contato de emergência)");
+
   console.log("\nCPF para a busca do portal médico:");
-  console.log("   João Batista                  : 529.982.247-25");
+  for (const plan of DEMO_PATIENTS) {
+    const cpf = plan.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    console.log(`   ${plan.name.padEnd(28)} ${cpf}`);
+  }
 }
 
 main()
@@ -586,4 +714,3 @@ main()
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());
-
