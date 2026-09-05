@@ -2,6 +2,9 @@ import Constants from "expo-constants";
 import type { AccessScope, BloodType, ContactLinkStatus } from "@medchain/domain";
 import { supabase } from "./supabase";
 import { buildApiUrl } from "./api-url";
+import { ApiError } from "./api-error";
+
+export { ApiError } from "./api-error";
 
 
 const API_URL = ((Constants.expoConfig?.extra ?? {}) as { apiUrl?: string }).apiUrl ?? "";
@@ -22,7 +25,7 @@ async function authedFetch<T>(path: string, init: RequestInit = {}): Promise<T> 
   const res = await fetch(buildApiUrl(API_URL, path), { ...init, headers });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new Error(`API ${res.status}: ${text}`);
+    throw new ApiError(res.status, `API ${res.status}: ${text}`);
   }
   return res.json() as Promise<T>;
 }

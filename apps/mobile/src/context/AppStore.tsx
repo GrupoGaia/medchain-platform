@@ -8,6 +8,7 @@ import {
   type AuditLogResponse,
 } from "../services/api";
 import { startRequestPolling } from "./request-polling";
+import { awaitsContactApproval, deniesPatientData } from "./contact-approval";
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,12 @@ interface AppState {
   tokens: AccessTokenResponse[];
   logs: AuditLogResponse[];
   loading: boolean;
+  /**
+   * Conta de contato de emergência cujo vínculo o paciente ainda não respondeu.
+   * Enquanto for verdadeiro não existe dado nenhum para mostrar, e as telas
+   * precisam explicar a espera em vez de aparecerem vazias.
+   */
+  awaitingContactApproval: boolean;
 }
 
 const initialState: AppState = {
@@ -23,6 +30,7 @@ const initialState: AppState = {
   tokens: [],
   logs: [],
   loading: true,
+  awaitingContactApproval: false,
 };
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -34,10 +42,22 @@ interface AppContextValue {
   revokeToken: (tokenId: string) => Promise<void>;
   activeTokens: AccessTokenResponse[];
   pendingRequests: AccessRequestResponse[];
+  awaitingContactApproval: boolean;
   refetch: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
+
+// Fora do provider porque não depende de estado: é só a segunda pergunta que o
+// 403 obriga a fazer. Se nem os vínculos carregarem, o app não sabe de nada e
+// não afirma espera nenhuma.
+async function hasPendingLink(): Promise<boolean> {
+  try {
+    return awaitsContactApproval(await api.getMyContactLinks());
+  } catch {
+    return false;
+  }
+}
 
 export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
@@ -55,9 +75,20 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         api.getActiveTokens(),
         api.getAuditLogs(),
       ]);
-      setState({ accessRequests: requests, tokens, logs, loading: false });
-    } catch {
-      setState((s) => ({ ...s, loading: false }));
+      setState({
+        accessRequests: requests,
+        tokens,
+        logs,
+        loading: false,
+        awaitingContactApproval: false,
+      });
+    } catch (error) {
+      // O 403 aqui é esperado para contato de emergência ainda não aprovado, e
+      // é a única pista que o app tem: as rotas de dados do paciente negam tudo
+      // antes de contar por quê. Os vínculos da própria conta continuam
+      // legíveis e confirmam a causa.
+      const awaiting = deniesPatientData(error) ? await hasPendingLink() : false;
+      setState((s) => ({ ...s, loading: false, awaitingContactApproval: awaiting }));
     } finally {
       inFlightRef.current = false;
     }
@@ -155,6 +186,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         revokeToken,
         activeTokens,
         pendingRequests,
+        awaitingContactApproval: state.awaitingContactApproval,
         refetch: fetchAll,
       }}
     >
