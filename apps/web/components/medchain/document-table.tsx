@@ -16,15 +16,28 @@ import { cn } from "@/lib/utils";
 // Um único container neutro para o ícone, em vez de uma família de cor por
 // tipo: a cor fica reservada para estado, e o tipo já é dito por ícone e
 // etiqueta.
-const DOC_TYPE: Record<string, { label: string; icon: LucideIcon }> = {
-  EXAM: { label: "Exame", icon: FlaskConical },
-  REPORT: { label: "Laudo", icon: FileText },
-  PRESCRIPTION: { label: "Receita", icon: Pill },
-  IMAGING: { label: "Imagem", icon: Scan },
+const DOC_TYPE: Record<
+  string,
+  { label: string; plural: string; icon: LucideIcon }
+> = {
+  EXAM: { label: "Exame", plural: "Exames", icon: FlaskConical },
+  REPORT: { label: "Laudo", plural: "Laudos", icon: FileText },
+  PRESCRIPTION: { label: "Receita", plural: "Receitas", icon: Pill },
+  IMAGING: { label: "Imagem", plural: "Imagens", icon: Scan },
 };
 
+/** Rótulo de um documento, para a coluna de tipo. */
 export function documentTypeLabel(type: string): string {
   return DOC_TYPE[type]?.label ?? type;
+}
+
+/**
+ * Rótulo de uma categoria de documentos. O aviso de escopo enumera categorias
+ * ("não autorizou o acesso a: receitas"), não itens, então ali o plural é o
+ * que soa certo.
+ */
+export function documentTypeLabelPlural(type: string): string {
+  return DOC_TYPE[type]?.plural ?? type;
 }
 
 export interface DocumentRowData {

@@ -16,6 +16,9 @@ export interface TypeStyle {
 }
 
 export const typography = {
+  // Só a manchete da página pública. Dentro do produto o maior papel é o
+  // `display`: título de ferramenta de trabalho não compete com o conteúdo.
+  hero: { size: 44, lineHeight: 50, weight: 600, tracking: -0.025 },
   display: { size: 30, lineHeight: 38, weight: 600, tracking: -0.02 },
   pageTitle: { size: 22, lineHeight: 30, weight: 600, tracking: -0.015 },
   sectionTitle: { size: 17, lineHeight: 24, weight: 600, tracking: -0.01 },

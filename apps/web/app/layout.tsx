@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { colors } from "@medchain/ui-tokens";
 import "./globals.css";
 
 // `display: swap` para o texto aparecer com a fonte do sistema enquanto a Inter
@@ -20,7 +21,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0F766E",
+  // O metadado exige um literal, então vem do token e não de variável CSS.
+  themeColor: colors.semantic.interactive,
   // Sem limite de zoom: quem precisa ampliar para ler precisa conseguir.
   width: "device-width",
   initialScale: 1,

@@ -85,7 +85,7 @@ function DropdownMenuItem({
       data-slot="dropdown-menu-item"
       data-variant={variant}
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none select-none",
+        "relative flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-body select-none focus-visible:outline-offset-[-2px]",
         "focus:bg-accent focus:text-accent-foreground data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground",
         "data-[variant=destructive]:text-danger data-[variant=destructive]:focus:bg-danger-subtle data-[variant=destructive]:data-[highlighted]:bg-danger-subtle",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
@@ -110,7 +110,7 @@ function DropdownMenuSubTrigger({
     <MenuPrimitive.SubmenuTrigger
       data-slot="dropdown-menu-sub-trigger"
       className={cn(
-        "flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none select-none",
+        "flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-body select-none focus-visible:outline-offset-[-2px]",
         "focus:bg-accent focus:text-accent-foreground data-[highlighted]:bg-accent data-[popup-open]:bg-accent",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-4",
         className
@@ -154,7 +154,7 @@ function DropdownMenuCheckboxItem({
     <MenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-md py-1.5 pl-2 pr-8 text-body outline-none select-none",
+        "relative flex cursor-default items-center gap-2 rounded-md py-1.5 pl-2 pr-8 text-body select-none focus-visible:outline-offset-[-2px]",
         "focus:bg-accent focus:text-accent-foreground data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-4",
@@ -194,7 +194,7 @@ function DropdownMenuRadioItem({
     <MenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-md py-1.5 pl-2 pr-8 text-body outline-none select-none",
+        "relative flex cursor-default items-center gap-2 rounded-md py-1.5 pl-2 pr-8 text-body select-none focus-visible:outline-offset-[-2px]",
         "focus:bg-accent focus:text-accent-foreground data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-4",

@@ -77,7 +77,7 @@ export default function Home() {
                 <Shield size={13} aria-hidden />
                 Portal médico
               </span>
-              <h1 className="mt-4 text-[2rem] font-semibold leading-[1.15] tracking-tight text-foreground sm:text-[2.75rem]">
+              <h1 className="mt-4 text-display text-foreground sm:text-hero">
                 Prontuários acessados com{" "}
                 <span className="text-primary-700">autorização do paciente</span>
               </h1>

@@ -164,6 +164,7 @@ const config: Config = {
       // Papéis tipográficos. Usar estes em vez de text-sm/text-lg mantém a
       // mesma informação com o mesmo peso em todas as telas.
       fontSize: {
+        hero: ["2.75rem", { lineHeight: "3.125rem", letterSpacing: "-0.025em", fontWeight: "600" }],
         display: ["1.875rem", { lineHeight: "2.375rem", letterSpacing: "-0.02em", fontWeight: "600" }],
         "page-title": ["1.375rem", { lineHeight: "1.875rem", letterSpacing: "-0.015em", fontWeight: "600" }],
         "section-title": ["1.0625rem", { lineHeight: "1.5rem", letterSpacing: "-0.01em", fontWeight: "600" }],

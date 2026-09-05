@@ -13,6 +13,7 @@ const twMerge = extendTailwindMerge({
       "font-size": [
         {
           text: [
+            "hero",
             "display",
             "page-title",
             "section-title",

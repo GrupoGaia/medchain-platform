@@ -19,7 +19,7 @@ import { AllergyAlert } from "@/components/medchain/allergy-alert";
 import { InfoList } from "@/components/medchain/info-list";
 import {
   DocumentTable,
-  documentTypeLabel,
+  documentTypeLabelPlural,
   type DocumentRowData,
 } from "@/components/medchain/document-table";
 import { PatientContextHeader } from "@/components/medchain/patient-context-header";
@@ -202,7 +202,7 @@ export default async function ProntuarioPage({
     new Set(
       documents
         .filter((doc) => !validTokens.some((t) => scopeAllowsDocumentType(t.scope, doc.type)))
-        .map((doc) => documentTypeLabel(doc.type))
+        .map((doc) => documentTypeLabelPlural(doc.type))
     )
   );
 

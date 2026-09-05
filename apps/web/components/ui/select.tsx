@@ -129,7 +129,7 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative m-1 flex cursor-default items-center gap-2 rounded-md py-1.5 pl-2.5 pr-8 text-body outline-none select-none",
+        "relative m-1 flex cursor-default items-center gap-2 rounded-md py-1.5 pl-2.5 pr-8 text-body select-none focus-visible:outline-offset-[-2px]",
         "focus:bg-accent focus:text-accent-foreground",
         "data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
