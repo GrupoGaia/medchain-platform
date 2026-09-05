@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Search, UserCheck, AlertCircle, Loader2 } from "lucide-react";
+import { Search, UserCheck, Loader2 } from "lucide-react";
 import { formatCpf, normalizeCpf } from "@medchain/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Label, FieldDescription, FieldError } from "@/components/ui/label";
+import { PatientIdentity } from "@/components/medchain/patient-identity";
 
 interface FoundPatient {
   id: string;
@@ -31,6 +31,8 @@ export function PatientSearch() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const complete = normalizeCpf(cpf).length === 11;
+
   async function search() {
     setLoading(true);
     setError(null);
@@ -54,18 +56,19 @@ export function PatientSearch() {
   if (patient) {
     return (
       <div className="space-y-1.5">
-        <Label>Paciente</Label>
+        <Label id="paciente-selecionado">Paciente</Label>
         <input type="hidden" name="patientId" value={patient.id} />
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-primary-100 bg-primary-50/50 p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary">
-              <UserCheck size={18} />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">{patient.fullName}</p>
-              <p className="text-xs text-muted-foreground">{formatCpf(cpf)}</p>
-            </div>
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-interactive-border bg-interactive-subtle p-3">
+          <PatientIdentity
+            name={patient.fullName}
+            size="sm"
+            meta={
+              <span className="inline-flex items-center gap-1.5">
+                <UserCheck size={13} aria-hidden className="text-success" />
+                {formatCpf(cpf)} · identidade confirmada
+              </span>
+            }
+          />
           <Button
             type="button"
             variant="outline"
@@ -75,7 +78,7 @@ export function PatientSearch() {
               setCpf("");
             }}
           >
-            Trocar
+            Trocar paciente
           </Button>
         </div>
       </div>
@@ -84,44 +87,54 @@ export function PatientSearch() {
 
   return (
     <div className="space-y-1.5">
-      <Label htmlFor="cpf">Paciente *</Label>
+      <Label htmlFor="cpf">
+        Paciente
+        <span aria-hidden className="text-danger">
+          *
+        </span>
+      </Label>
       <div className="flex gap-2">
         <Input
           id="cpf"
           value={cpf}
           inputMode="numeric"
           autoComplete="off"
-          placeholder="CPF do paciente"
+          placeholder="000.000.000-00"
+          maxLength={14}
+          aria-describedby={error ? "cpf-erro" : "cpf-ajuda"}
+          aria-invalid={error ? true : undefined}
           onChange={(event) => setCpf(maskCpf(event.target.value))}
           onKeyDown={(event) => {
             // Enter aqui busca, e nao envia a solicitacao com o formulario
             // ainda sem paciente escolhido.
             if (event.key === "Enter") {
               event.preventDefault();
-              if (normalizeCpf(cpf).length === 11) void search();
+              if (complete) void search();
             }
           }}
         />
         <Button
           type="button"
           onClick={search}
-          disabled={loading || normalizeCpf(cpf).length !== 11}
-          className="gap-1.5"
+          disabled={loading || !complete}
+          className="shrink-0"
         >
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+          {loading ? (
+            <Loader2 className="animate-spin" aria-hidden />
+          ) : (
+            <Search aria-hidden />
+          )}
           Buscar
         </Button>
       </div>
 
       {error ? (
-        <Alert variant="destructive" className="mt-2">
-          <AlertCircle size={16} />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <FieldError id="cpf-erro">{error}</FieldError>
       ) : (
-        <p className="text-xs text-muted-foreground">
-          Informe o CPF completo. A busca não lista pacientes, só confirma o que você já sabe.
-        </p>
+        <FieldDescription id="cpf-ajuda">
+          Informe o CPF completo. A busca não lista pacientes: ela apenas
+          confirma o cadastro que você já conhece.
+        </FieldDescription>
       )}
     </div>
   );

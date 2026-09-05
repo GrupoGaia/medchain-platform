@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { formatCrm } from "@medchain/domain";
 import { requireDoctor } from "@/lib/session";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { AppShell } from "@/components/medchain/app-shell";
@@ -16,11 +17,15 @@ export default async function MedicoLayout({
   children: React.ReactNode;
 }) {
   const { user } = await requireDoctor();
+  const profile = user.professionalProfile;
 
   return (
     <AppShell
-      userName={user.professionalProfile?.fullName ?? user.email ?? "Médico"}
-      userSubtitle={user.professionalProfile?.specialty}
+      userName={profile?.fullName ?? user.email ?? "Profissional"}
+      userSubtitle={
+        profile ? `${profile.specialty} · ${formatCrm(profile.crm)}` : undefined
+      }
+      institution={profile?.institution?.name}
       logoutAction={logout}
     >
       {children}

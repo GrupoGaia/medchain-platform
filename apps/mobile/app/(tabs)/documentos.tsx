@@ -1,29 +1,47 @@
-import React, { useEffect, useState, useCallback } from "react";
-import {
-  View,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-  Linking,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Card, EmptyState, ExamResultsTable, Text } from "../../src/components";
-import emptyDocuments from "../../assets/img/empty-documents.png";
+import { useCallback, useEffect, useState } from "react";
+import { Alert, Linking, Pressable, RefreshControl, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
-import { FileText, Upload, Download } from "lucide-react-native";
-import { api, type MedicalDocumentResponse } from "../../src/services/api";
+import {
+  FileText,
+  FlaskConical,
+  Pill,
+  Scan,
+  Upload,
+  Download,
+  ChevronDown,
+  type LucideIcon,
+} from "lucide-react-native";
 import { colors } from "@medchain/ui-tokens";
+import {
+  Button,
+  EmptyState,
+  ExamResultsTable,
+  Screen,
+  ScreenHeader,
+  SectionHeader,
+  Surface,
+  Text,
+} from "../../src/components";
+import { api, type MedicalDocumentResponse } from "../../src/services/api";
 
-const DOC_TYPE_LABEL: Record<string, string> = {
-  EXAM: "Exame",
-  REPORT: "Laudo",
-  PRESCRIPTION: "Receita",
-  IMAGING: "Imagem",
+// Mesmo vocabulário e mesmos ícones do portal: um laudo precisa parecer um
+// laudo nas duas pontas.
+const DOC_TYPE: Record<string, { label: string; icon: LucideIcon }> = {
+  EXAM: { label: "Exame", icon: FlaskConical },
+  REPORT: { label: "Laudo", icon: FileText },
+  PRESCRIPTION: { label: "Receita", icon: Pill },
+  IMAGING: { label: "Imagem", icon: Scan },
 };
 
-const DOC_TYPE_OPTIONS = Object.entries(DOC_TYPE_LABEL);
+const DOC_TYPE_OPTIONS = Object.entries(DOC_TYPE);
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export default function DocumentosScreen() {
   const [documents, setDocuments] = useState<MedicalDocumentResponse[]>([]);
@@ -31,13 +49,14 @@ export default function DocumentosScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedType, setSelectedType] = useState("EXAM");
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const loadDocuments = useCallback(async () => {
     try {
       const docs = await api.getMyDocuments();
       setDocuments(docs);
     } catch {
-      Alert.alert("Erro", "Não foi possível carregar os documentos.");
+      Alert.alert("Não foi possível carregar", "Puxe a tela para baixo para tentar de novo.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -68,38 +87,35 @@ export default function DocumentosScreen() {
         issuedAt: new Date().toISOString().split("T")[0]!,
       });
       await loadDocuments();
-      Alert.alert("Sucesso", "Documento enviado com sucesso.");
+      Alert.alert("Documento enviado", "Ele já aparece na sua lista.");
     } catch {
-      Alert.alert("Erro", "Não foi possível enviar o documento.");
+      Alert.alert("Não foi possível enviar", "Tente novamente em alguns instantes.");
     } finally {
       setUploading(false);
     }
   }
 
-  async function handleDownload(docId: string) {
+  async function handleOpen(docId: string) {
     try {
       const { signedUrl } = await api.getDocumentUrl(docId);
       await Linking.openURL(signedUrl);
     } catch {
-      Alert.alert("Erro", "Não foi possível abrir o documento.");
+      Alert.alert("Não foi possível abrir", "Tente novamente em alguns instantes.");
     }
   }
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-gray-50">
-        <ActivityIndicator size="large" color={colors.brand[700]} />
-      </SafeAreaView>
+      <Screen center scroll={false}>
+        <Text className="text-body-sm text-foreground-tertiary">
+          Carregando seus documentos…
+        </Text>
+      </Screen>
     );
   }
 
   return (
-    // Esta era a unica aba sem SafeAreaView, entao o titulo ficava embaixo do
-    // relogio da barra de status enquanto as outras respeitavam o inset.
-    <SafeAreaView className="flex-1 bg-gray-50">
-    <ScrollView
-      className="flex-1"
-      contentContainerStyle={{ padding: 16 }}
+    <Screen
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -110,94 +126,144 @@ export default function DocumentosScreen() {
         />
       }
     >
-      <View className="mb-4 flex-row items-center justify-between">
-        <Text className="text-xl font-bold text-gray-900">Meus Documentos</Text>
-        <TouchableOpacity
-          onPress={handleUpload}
-          disabled={uploading}
-          className="flex-row items-center gap-2 rounded-xl bg-brand-600 px-4 py-2"
-        >
-          {uploading ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <Upload size={14} color="white" />
-          )}
-          <Text className="text-sm font-medium text-white">
-            {uploading ? "Enviando..." : "Adicionar"}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Meus documentos"
+        subtitle="Exames, laudos e receitas que ficam disponíveis para quem você autorizar."
+      />
 
-      <View className="mb-4 rounded-xl bg-white p-4 shadow-sm">
-        <Text className="text-sm font-semibold text-gray-900">
-          Tipo do próximo documento
+      {/* Envio. O tipo vem antes do botão porque é ele que decide para qual
+          escopo o documento vai ficar visível. */}
+      <Surface className="mb-6">
+        <Text className="text-label font-medium text-foreground">
+          Tipo do documento a enviar
         </Text>
-        <View className="mt-3 flex-row flex-wrap gap-2">
-          {DOC_TYPE_OPTIONS.map(([value, label]) => {
+        <View
+          accessibilityRole="radiogroup"
+          className="mt-3 flex-row flex-wrap gap-2"
+        >
+          {DOC_TYPE_OPTIONS.map(([value, config]) => {
             const active = selectedType === value;
+            const Icon = config.icon;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={value}
                 onPress={() => setSelectedType(value)}
-                className={`rounded-full border px-3 py-2 ${
+                accessibilityRole="radio"
+                accessibilityState={{ selected: active, checked: active }}
+                accessibilityLabel={config.label}
+                className={`min-h-touch flex-row items-center gap-1.5 rounded-lg border px-3 ${
                   active
-                    ? "border-brand-600 bg-brand-50"
-                    : "border-gray-200 bg-white"
+                    ? "border-interactive bg-interactive-subtle"
+                    : "border-border bg-surface active:bg-surface-subtle"
                 }`}
               >
+                <Icon
+                  size={14}
+                  color={
+                    active
+                      ? colors.semantic.interactive
+                      : colors.semantic.textTertiary
+                  }
+                />
                 <Text
-                  className={`text-xs font-medium ${
-                    active ? "text-brand-700" : "text-gray-600"
+                  className={`text-label ${
+                    active
+                      ? "font-semibold text-interactive"
+                      : "font-medium text-foreground-secondary"
                   }`}
                 >
-                  {label}
+                  {config.label}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </View>
-      </View>
 
-      {documents.length === 0 ? (
-        <Card className="mt-6 py-8">
+        <Button
+          className="mt-4"
+          label={uploading ? "Enviando…" : "Escolher arquivo e enviar"}
+          icon={<Upload size={16} color="#FFFFFF" />}
+          loading={uploading}
+          disabled={uploading}
+          onPress={handleUpload}
+          accessibilityHint="Abre o seletor de arquivos do aparelho"
+        />
+      </Surface>
+
+      <View className="gap-3">
+        <SectionHeader title="Seus documentos" count={documents.length} />
+
+        {documents.length === 0 ? (
           <EmptyState
-            image={emptyDocuments}
-            title="Nenhum documento"
-            description="Toque em Adicionar para enviar exames ou laudos."
+            icon={<FileText size={20} color={colors.semantic.textTertiary} />}
+            title="Nenhum documento enviado"
+            description="Envie um exame ou laudo para que ele fique disponível quando você autorizar um profissional."
           />
-        </Card>
-      ) : (
-        <View className="gap-2">
-          {documents.map((doc) => (
-            <View key={doc.id} className="rounded-xl bg-white px-4 py-3 shadow-sm">
-              <View className="flex-row items-center justify-between">
-                <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-brand-50">
-                  <FileText size={18} color={colors.brand[700]} />
+        ) : (
+          documents.map((doc) => {
+            const config = DOC_TYPE[doc.type];
+            const Icon = config?.icon ?? FileText;
+            const hasResults = doc.results && doc.results.length > 0;
+            const isOpen = expanded === doc.id;
+
+            return (
+              <Surface key={doc.id}>
+                <View className="flex-row items-center gap-3">
+                  <View className="h-9 w-9 items-center justify-center rounded-md border border-border bg-surface-subtle">
+                    <Icon size={16} color={colors.semantic.textSecondary} />
+                  </View>
+                  <View className="flex-1">
+                    <Text
+                      numberOfLines={2}
+                      className="text-body font-semibold text-foreground"
+                    >
+                      {doc.title}
+                    </Text>
+                    <Text className="text-caption text-foreground-tertiary">
+                      {config?.label ?? doc.type} · {formatDate(doc.issuedAt)}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => handleOpen(doc.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Abrir ${doc.title}`}
+                    hitSlop={8}
+                    className="h-11 w-11 items-center justify-center rounded-lg border border-border active:bg-surface-subtle"
+                  >
+                    <Download size={16} color={colors.semantic.textSecondary} />
+                  </Pressable>
                 </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-medium text-gray-900" numberOfLines={1}>
-                    {doc.title}
-                  </Text>
-                  <Text className="text-xs text-gray-400">
-                    {DOC_TYPE_LABEL[doc.type] ?? doc.type} ·{" "}
-                    {new Date(doc.issuedAt).toLocaleDateString("pt-BR")}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => handleDownload(doc.id)}
-                  className="ml-2 rounded-lg border border-gray-200 p-2"
-                >
-                  <Download size={14} color={colors.neutral.subtle} />
-                </TouchableOpacity>
-              </View>
-              {doc.results && doc.results.length > 0 && (
-                <ExamResultsTable results={doc.results} />
-              )}
-            </View>
-          ))}
-        </View>
-      )}
-    </ScrollView>
-    </SafeAreaView>
+
+                {hasResults && (
+                  <>
+                    <Pressable
+                      onPress={() => setExpanded(isOpen ? null : doc.id)}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: isOpen }}
+                      accessibilityLabel={`${
+                        isOpen ? "Ocultar" : "Ver"
+                      } resultados laboratoriais de ${doc.title}`}
+                      className="mt-3 min-h-touch flex-row items-center gap-1.5"
+                    >
+                      <ChevronDown
+                        size={15}
+                        color={colors.semantic.interactive}
+                        style={{
+                          transform: [{ rotate: isOpen ? "180deg" : "0deg" }],
+                        }}
+                      />
+                      <Text className="text-label font-semibold text-interactive">
+                        Resultados laboratoriais ({doc.results!.length})
+                      </Text>
+                    </Pressable>
+                    {isOpen && <ExamResultsTable results={doc.results!} />}
+                  </>
+                )}
+              </Surface>
+            );
+          })
+        )}
+      </View>
+    </Screen>
   );
 }

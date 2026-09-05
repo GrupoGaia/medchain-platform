@@ -1,29 +1,39 @@
-import { useState, useCallback } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useCallback, useState } from "react";
+import { Alert, Linking, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
-  View,
-  ScrollView,
-  TouchableOpacity,
-  Linking,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
-import { SectionLabel, Text } from "../../src/components";
-import { User, AlertTriangle, Pill, Phone, LogOut, UserPlus } from "lucide-react-native";
-import { api, type PatientProfileResponse } from "../../src/services/api";
-import { useAuth } from "../../src/context/AuthProvider";
+  User,
+  AlertTriangle,
+  Activity,
+  Pill,
+  Phone,
+  LogOut,
+  UserPlus,
+  Copy,
+  Droplet,
+} from "lucide-react-native";
 import { formatCpf } from "@medchain/domain";
 import { colors } from "@medchain/ui-tokens";
+import {
+  Button,
+  InfoRow,
+  ListRow,
+  RowDivider,
+  Screen,
+  ScreenHeader,
+  SectionHeader,
+  Surface,
+  Text,
+} from "../../src/components";
+import { api, type PatientProfileResponse } from "../../src/services/api";
+import { useAuth } from "../../src/context/AuthProvider";
 
 function getInitials(fullName: string): string {
-  return fullName
-    .split(" ")
-    .filter(Boolean)
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const parts = fullName.split(" ").filter(Boolean);
+  if (parts.length === 0) return "?";
+  const first = parts[0][0] ?? "";
+  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
+  return `${first}${last}`.toUpperCase();
 }
 
 // O telefone vem formatado do cadastro, com parenteses, espaco e traco. O
@@ -32,8 +42,12 @@ async function callContact(phone: string) {
   try {
     await Linking.openURL(`tel:${phone.replace(/[^\d+]/g, "")}`);
   } catch {
-    Alert.alert("Erro", "Não foi possível abrir o discador.");
+    Alert.alert("Não foi possível ligar", "Abra o discador manualmente.");
   }
+}
+
+function listOrFallback(values: string[], fallback: string): string {
+  return values.length > 0 ? values.join(", ") : fallback;
 }
 
 export default function PerfilScreen() {
@@ -77,43 +91,55 @@ export default function PerfilScreen() {
       await (approve ? api.approveContactLink(linkId) : api.denyContactLink(linkId));
       loadProfile();
     } catch {
-      Alert.alert("Erro", "Não foi possível responder ao pedido.");
+      Alert.alert("Não foi possível responder", "Tente novamente.");
     } finally {
       setRespondingTo(null);
     }
   }
 
+  function confirmSignOut() {
+    Alert.alert("Sair da conta?", "Você precisará entrar de novo para acessar o app.", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Sair", style: "destructive", onPress: () => signOut() },
+    ]);
+  }
+
   if (awaitingApproval) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-gray-50 px-8">
-        <View className="mb-4 h-14 w-14 items-center justify-center rounded-full bg-amber-100">
-          <UserPlus color={colors.alert.amber} size={26} />
+      <Screen center>
+        <View className="items-center">
+          <View className="mb-4 h-14 w-14 items-center justify-center rounded-full bg-warning-subtle border border-warning-border">
+            <UserPlus size={24} color={colors.status.warning.fg} />
+          </View>
+          <Text
+            accessibilityRole="header"
+            className="text-center text-section-title font-semibold text-foreground"
+          >
+            Aguardando o paciente
+          </Text>
+          <Text className="mt-2 text-center text-body-sm text-foreground-tertiary">
+            Seu pedido para ser contato de emergência foi enviado. Até o paciente
+            aceitar, você não tem acesso aos dados dele.
+          </Text>
+          <Button
+            className="mt-8"
+            label="Sair"
+            variant="destructive"
+            icon={<LogOut size={16} color={colors.status.danger.fg} />}
+            onPress={confirmSignOut}
+          />
         </View>
-        <Text className="text-center text-lg font-bold text-gray-900">
-          Aguardando o paciente
-        </Text>
-        <Text className="mt-2 text-center text-sm text-gray-500">
-          Seu pedido para ser contato de emergência foi enviado. Até o paciente aceitar,
-          você não tem acesso aos dados dele.
-        </Text>
-        <TouchableOpacity
-          onPress={signOut}
-          className="mt-8 flex-row items-center justify-center gap-2 rounded-xl bg-red-50 px-6 py-3"
-          accessibilityLabel="Sair da conta"
-          accessibilityRole="button"
-        >
-          <LogOut color={colors.alert.red} size={16} />
-          <Text className="text-sm font-medium text-red-600">Sair</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!profile) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-gray-50">
-        <Text className="text-gray-400">Carregando...</Text>
-      </SafeAreaView>
+      <Screen center scroll={false}>
+        <Text className="text-body-sm text-foreground-tertiary">
+          Carregando seu perfil…
+        </Text>
+      </Screen>
     );
   }
 
@@ -124,192 +150,185 @@ export default function PerfilScreen() {
   const contacts = profile.emergencyContacts.filter((c) => c.status === "APPROVED");
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
-        <Text className="mb-6 text-2xl font-bold text-gray-900">Perfil</Text>
+    <Screen>
+      <ScreenHeader title="Perfil" subtitle="Seus dados e quem pode agir por você." />
 
-        {/* Avatar */}
-        <View className="mb-6 items-center rounded-2xl bg-white py-8">
-          <View className="mb-3 h-20 w-20 items-center justify-center rounded-full bg-brand-600">
-            <Text className="text-3xl font-bold text-white">{getInitials(profile.fullName)}</Text>
-          </View>
-          <Text className="text-xl font-bold text-gray-900">{profile.fullName}</Text>
-          <Text className="text-sm text-gray-400">
-            Tipo sanguíneo: {profile.bloodType ?? "Não informado"}
+      {/* Identidade. */}
+      <Surface className="mb-6 items-center">
+        <View className="h-16 w-16 items-center justify-center rounded-full border border-interactive-border bg-interactive-subtle">
+          <Text className="text-page-title font-bold text-interactive">
+            {getInitials(profile.fullName)}
           </Text>
+        </View>
+        <Text className="mt-3 text-section-title font-semibold text-foreground">
+          {profile.fullName}
+        </Text>
 
-          {/* O medico localiza o paciente pelo CPF, entao o paciente precisa
-              conseguir ler o dele para ditar em atendimento. */}
-          {profile.cpf && (
-            <View className="mt-4 items-center rounded-xl border border-brand-100 bg-brand-50 px-5 py-3">
-              <Text className="text-[11px] font-bold uppercase tracking-wider text-brand-700">
+        {/* O medico localiza o paciente pelo CPF, entao o paciente precisa
+            conseguir ler o dele para ditar em atendimento. */}
+        {profile.cpf ? (
+          <View
+            accessible
+            accessibilityLabel={`Seu CPF é ${formatCpf(profile.cpf)}`}
+            className="mt-4 w-full items-center rounded-lg border border-border bg-surface-subtle px-4 py-3"
+          >
+            <View className="flex-row items-center gap-1.5">
+              <Copy size={12} color={colors.semantic.textTertiary} />
+              <Text className="text-overline font-semibold uppercase text-foreground-tertiary">
                 Seu CPF
               </Text>
-              <Text
-                className="mt-0.5 text-lg font-bold tracking-wide text-gray-900"
-                selectable
-              >
-                {formatCpf(profile.cpf)}
-              </Text>
-              <Text className="mt-1 text-center text-xs text-gray-500">
-                Informe ao médico para ele solicitar acesso
-              </Text>
             </View>
-          )}
-        </View>
-
-        {/* Dados críticos */}
-        <SectionLabel>
-          Dados críticos
-        </SectionLabel>
-        <View className="mb-6 rounded-2xl bg-white">
-          <View className="flex-row items-start gap-3 p-4">
-            <AlertTriangle color={colors.alert.amber} size={18} />
-            <View className="flex-1">
-              <Text className="mb-1 text-xs text-gray-400">Alergias</Text>
-              <Text className="text-sm font-medium text-gray-900">
-                {profile.allergies.length > 0
-                  ? profile.allergies.join(", ")
-                  : "Nenhuma registrada"}
-              </Text>
-            </View>
+            <Text selectable className="mt-1 text-section-title font-bold text-foreground">
+              {formatCpf(profile.cpf)}
+            </Text>
+            <Text className="mt-1 text-center text-caption text-foreground-tertiary">
+              Informe ao profissional para ele solicitar acesso
+            </Text>
           </View>
-          <View className="mx-4 h-px bg-gray-100" />
-          <View className="flex-row items-start gap-3 p-4">
-            <Pill color={colors.alert.info} size={18} />
-            <View className="flex-1">
-              <Text className="mb-1 text-xs text-gray-400">Condições crônicas</Text>
-              <Text className="text-sm font-medium text-gray-900">
-                {profile.chronicConditions.length > 0
-                  ? profile.chronicConditions.join(" · ")
-                  : "Nenhuma registrada"}
-              </Text>
-            </View>
-          </View>
-          <View className="mx-4 h-px bg-gray-100" />
-          <View className="flex-row items-start gap-3 p-4">
-            <Pill color={colors.brand[700]} size={18} />
-            <View className="flex-1">
-              <Text className="mb-1 text-xs text-gray-400">Uso contínuo</Text>
-              <Text className="text-sm font-medium text-gray-900">
-                {profile.continuousMeds.length > 0
-                  ? profile.continuousMeds.join(" · ")
-                  : "Nenhum registrado"}
-              </Text>
-            </View>
-          </View>
-        </View>
+        ) : null}
+      </Surface>
 
-        {/* Pedidos de vínculo aguardando resposta */}
-        {pendingLinks.length > 0 && (
-          <>
-            <SectionLabel tone="warning">Pedidos de vínculo</SectionLabel>
-            <View className="mb-6 gap-3">
-              {pendingLinks.map((link) => (
-                <View
-                  key={link.id}
-                  className="rounded-2xl border border-amber-200 bg-amber-50 p-5"
-                >
-                  <View className="mb-3 flex-row items-center gap-2">
-                    <UserPlus color={colors.alert.amber} size={18} />
-                    <Text className="text-sm font-semibold text-amber-700">
-                      Quer ser seu contato de emergência
-                    </Text>
-                  </View>
-                  <Text className="text-base font-bold text-gray-900">{link.name}</Text>
-                  <Text className="text-sm text-gray-500">
-                    {link.relation} · {link.phone}
-                  </Text>
-                  <Text className="mb-4 mt-2 text-xs text-gray-500">
-                    Se você aceitar, essa pessoa poderá autorizar acessos ao seu prontuário
-                    e ver seus documentos. Enquanto não responder, ela não vê nada.
-                  </Text>
+      {/* Dados clínicos. */}
+      <View className="mb-6 gap-3">
+        <SectionHeader
+          title="Dados clínicos"
+          description="É o que o profissional vê em qualquer escopo, inclusive em emergência."
+        />
+        <Surface>
+          <InfoRow
+            icon={<Droplet size={14} color={colors.semantic.textTertiary} />}
+            label="Tipo sanguíneo"
+            value={profile.bloodType ?? "Não informado"}
+          />
+          <View className="h-px bg-border-subtle" />
+          <InfoRow
+            icon={<AlertTriangle size={14} color={colors.status.warning.fg} />}
+            label="Alergias"
+            value={listOrFallback(profile.allergies, "Nenhuma registrada")}
+            emphasis={profile.allergies.length > 0}
+          />
+          <View className="h-px bg-border-subtle" />
+          <InfoRow
+            icon={<Activity size={14} color={colors.semantic.textTertiary} />}
+            label="Condições crônicas"
+            value={listOrFallback(profile.chronicConditions, "Nenhuma registrada")}
+          />
+          <View className="h-px bg-border-subtle" />
+          <InfoRow
+            icon={<Pill size={14} color={colors.semantic.textTertiary} />}
+            label="Medicamentos contínuos"
+            value={listOrFallback(profile.continuousMeds, "Nenhum registrado")}
+          />
+        </Surface>
+        <Button
+          label="Editar dados clínicos"
+          variant="outline"
+          onPress={() => router.push("/editar-perfil" as never)}
+        />
+      </View>
 
-                  {respondingTo === link.id ? (
-                    <ActivityIndicator color={colors.brand[700]} />
-                  ) : (
-                    <View className="flex-row gap-2">
-                      <TouchableOpacity
-                        onPress={() => respondToLink(link.id, false)}
-                        className="flex-1 rounded-xl border border-gray-200 bg-white py-3"
-                        accessibilityRole="button"
-                        accessibilityLabel={`Recusar ${link.name} como contato de emergência`}
-                      >
-                        <Text className="text-center text-sm font-semibold text-gray-600">
-                          Recusar
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => respondToLink(link.id, true)}
-                        className="flex-1 rounded-xl bg-brand-600 py-3"
-                        accessibilityRole="button"
-                        accessibilityLabel={`Aceitar ${link.name} como contato de emergência`}
-                      >
-                        <Text className="text-center text-sm font-semibold text-white">
-                          Aceitar
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              ))}
-            </View>
-          </>
-        )}
-
-        {/* Contatos de emergência */}
-        <SectionLabel>
-          Contatos de emergência
-        </SectionLabel>
-        <View className="mb-6 rounded-2xl bg-white">
-          {contacts.length === 0 && (
-            <View className="p-4">
-              <Text className="text-sm text-gray-400">Nenhum contato cadastrado</Text>
-            </View>
-          )}
-          {contacts.map((contato, i) => (
-            <View key={contato.id}>
-              <TouchableOpacity
-                onPress={() => callContact(contato.phone)}
-                className="flex-row items-center gap-3 p-4 active:bg-gray-50"
-                accessibilityLabel={`Ligar para ${contato.name}, ${contato.relation}`}
-                accessibilityRole="button"
-              >
-                <View className="h-9 w-9 items-center justify-center rounded-full bg-gray-100">
-                  <User color={colors.neutral.subtle} size={16} />
+      {/* Pedidos de vínculo aguardando resposta. */}
+      {pendingLinks.length > 0 && (
+        <View className="mb-6 gap-3">
+          <SectionHeader
+            title="Pedidos de vínculo"
+            count={pendingLinks.length}
+            description="Alguém quer ser seu contato de emergência."
+          />
+          {pendingLinks.map((link) => (
+            <Surface key={link.id} tone="warning">
+              <View className="flex-row items-start gap-3">
+                <View className="h-10 w-10 items-center justify-center rounded-lg border border-warning-border bg-warning-subtle">
+                  <UserPlus size={18} color={colors.status.warning.fg} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm font-medium text-gray-900">{contato.name}</Text>
-                  <Text className="text-xs text-gray-400">
-                    {contato.relation} · {contato.phone}
+                  <Text className="text-card-title font-semibold text-foreground">
+                    {link.name}
+                  </Text>
+                  <Text className="text-body-sm text-foreground-secondary">
+                    {link.relation} · {link.phone}
                   </Text>
                 </View>
-                <Phone color={colors.brand[700]} size={16} />
-              </TouchableOpacity>
-              {i < contacts.length - 1 && <View className="mx-4 h-px bg-gray-100" />}
-            </View>
+              </View>
+
+              <Text className="mt-3 text-body-sm text-foreground-secondary">
+                Se você aceitar, essa pessoa poderá autorizar acessos ao seu
+                prontuário e ver seus documentos. Enquanto não responder, ela não
+                vê nada.
+              </Text>
+
+              <View className="mt-4 flex-row gap-2">
+                <Button
+                  label="Recusar"
+                  variant="outline"
+                  size="sm"
+                  fullWidth={false}
+                  className="flex-1"
+                  loading={respondingTo === link.id}
+                  disabled={respondingTo !== null}
+                  onPress={() => respondToLink(link.id, false)}
+                  accessibilityLabel={`Recusar ${link.name} como contato de emergência`}
+                />
+                <Button
+                  label="Aceitar"
+                  size="sm"
+                  fullWidth={false}
+                  className="flex-1"
+                  loading={respondingTo === link.id}
+                  disabled={respondingTo !== null}
+                  onPress={() => respondToLink(link.id, true)}
+                  accessibilityLabel={`Aceitar ${link.name} como contato de emergência`}
+                />
+              </View>
+            </Surface>
           ))}
         </View>
+      )}
 
-        <TouchableOpacity
-          onPress={() => router.push("/editar-perfil" as never)}
-          className="mb-3 items-center rounded-xl border border-gray-200 bg-white py-4"
-          accessibilityLabel="Editar perfil"
-          accessibilityRole="button"
-        >
-          <Text className="text-sm font-medium text-gray-600">Editar perfil</Text>
-        </TouchableOpacity>
+      {/* Contatos aprovados. */}
+      <View className="mb-6 gap-3">
+        <SectionHeader
+          title="Contatos de emergência"
+          count={contacts.length}
+          description="Podem autorizar acessos por você quando não for possível responder."
+        />
+        <Surface padded={false} className="overflow-hidden">
+          {contacts.length === 0 ? (
+            <View className="px-4 py-5">
+              <Text className="text-body-sm text-foreground-tertiary">
+                Nenhum contato aprovado.
+              </Text>
+            </View>
+          ) : (
+            contacts.map((contact, index) => (
+              <View key={contact.id}>
+                {index > 0 && <RowDivider />}
+                <ListRow
+                  title={contact.name}
+                  subtitle={`${contact.relation} · ${contact.phone}`}
+                  onPress={() => callContact(contact.phone)}
+                  accessibilityLabel={`Ligar para ${contact.name}, ${contact.relation}`}
+                  leading={
+                    <View className="h-9 w-9 items-center justify-center rounded-full bg-surface-subtle">
+                      <User size={16} color={colors.semantic.textSecondary} />
+                    </View>
+                  }
+                  trailing={
+                    <Phone size={16} color={colors.semantic.interactive} />
+                  }
+                />
+              </View>
+            ))
+          )}
+        </Surface>
+      </View>
 
-        <TouchableOpacity
-          onPress={signOut}
-          className="flex-row items-center justify-center gap-2 rounded-xl bg-red-50 py-4"
-          accessibilityLabel="Sair da conta"
-          accessibilityRole="button"
-        >
-          <LogOut color={colors.alert.red} size={16} />
-          <Text className="text-sm font-medium text-red-600">Sair</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      <Button
+        label="Sair da conta"
+        variant="destructive"
+        icon={<LogOut size={16} color={colors.status.danger.fg} />}
+        onPress={confirmSignOut}
+      />
+    </Screen>
   );
 }

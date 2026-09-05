@@ -1,6 +1,6 @@
-import { LucideIcon } from "lucide-react";
+import Link from "next/link";
+import { type LucideIcon } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface EmptyStateProps {
@@ -11,25 +11,54 @@ interface EmptyStateProps {
     label: string;
     href: string;
   };
+  /** `inline` cabe dentro de um painel estreito, como a coluna de apoio. */
+  size?: "default" | "inline";
+  className?: string;
 }
 
-export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
+/**
+ * Estado vazio: explica em uma frase por que não há nada e qual é o próximo
+ * passo. Sem ilustração ocupando a tela — em ferramenta de trabalho isso só
+ * empurra o conteúdo para baixo.
+ */
+export function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  action,
+  size = "default",
+  className,
+}: EmptyStateProps) {
   return (
-    <Card className="border-dashed bg-white shadow-sm">
-      <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-        {Icon && (
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-            <Icon size={24} className="text-muted-foreground" />
-          </div>
-        )}
-        <h3 className="text-base font-semibold text-foreground">{title}</h3>
-        {description && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>}
-        {action && (
-          <a href={action.href} className={cn(buttonVariants(), "mt-5")}>
-            {action.label}
-          </a>
-        )}
-      </CardContent>
-    </Card>
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center rounded-xl border border-dashed border-border-strong bg-surface text-center",
+        size === "default" ? "px-6 py-10" : "px-4 py-7",
+        className
+      )}
+    >
+      {Icon && (
+        <span
+          aria-hidden
+          className="mb-3 flex size-10 items-center justify-center rounded-full bg-secondary text-muted-foreground"
+        >
+          <Icon size={19} />
+        </span>
+      )}
+      <p className="text-card-title text-foreground">{title}</p>
+      {description && (
+        <p className="mt-1 max-w-sm text-body-sm text-muted-foreground">
+          {description}
+        </p>
+      )}
+      {action && (
+        <Link
+          href={action.href}
+          className={cn(buttonVariants({ size: "sm" }), "mt-4")}
+        >
+          {action.label}
+        </Link>
+      )}
+    </div>
   );
 }

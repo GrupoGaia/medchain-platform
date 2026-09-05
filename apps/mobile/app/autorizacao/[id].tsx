@@ -1,49 +1,92 @@
-import { View, TouchableOpacity, ScrollView, Alert } from "react-native";
+import { useState } from "react";
+import { Alert, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Text } from "../../src/components";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  ShieldCheck,
-  ShieldX,
-  User,
-  Clock,
-  AlertTriangle,
   Check,
   X,
+  Building2,
+  Clock,
+  FileLock2,
+  MessageSquareQuote,
+  ShieldCheck,
+  EyeOff,
+  Stethoscope,
 } from "lucide-react-native";
-import { useAppStore } from "../../src/context/AppStore";
+import {
+  SCOPE_LABEL,
+  SCOPE_SHARES,
+  SCOPE_WITHHOLDS,
+  formatMinutesRemaining,
+  formatCrm,
+} from "@medchain/domain";
 import { colors } from "@medchain/ui-tokens";
-import { SCOPE_LABEL, SCOPE_SHARES, SCOPE_WITHHOLDS } from "@medchain/domain";
+import {
+  Button,
+  ScreenHeader,
+  StatusBadge,
+  Surface,
+  Text,
+} from "../../src/components";
+import { useAppStore } from "../../src/context/AppStore";
 
 export default function AutorizacaoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { state, approveRequest, denyRequest } = useAppStore();
+  const [submitting, setSubmitting] = useState<"approve" | "deny" | null>(null);
 
-  const request = state.accessRequests.find((r) => r.id === id);
+  const request = state.accessRequests.find((item) => item.id === id);
 
   if (!request) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-gray-50">
-        <Text className="text-gray-500">Pedido não encontrado.</Text>
+      <SafeAreaView className="flex-1 items-center justify-center bg-background px-6">
+        <Text className="text-center text-card-title font-semibold text-foreground">
+          Pedido não encontrado
+        </Text>
+        <Text className="mt-1 text-center text-body-sm text-foreground-tertiary">
+          Ele pode ter sido cancelado pelo profissional ou já respondido em outro
+          aparelho.
+        </Text>
+        <Button
+          className="mt-6"
+          label="Voltar"
+          variant="outline"
+          onPress={() => router.back()}
+        />
       </SafeAreaView>
     );
   }
 
   const isResolved = request.status !== "PENDING";
+  const professional = request.professional;
+  const scope = request.scope;
 
+  // Aprovar cria o token na hora, então a confirmação é o último ponto em que
+  // dá para desistir. Negar também confirma: um toque errado aqui manda o
+  // profissional de volta para o começo do fluxo.
   function handleApprove() {
     Alert.alert(
-      "Confirmar autorização",
-      `Autorizar acesso de ${request!.professional.fullName} por ${request!.durationMinutes} minutos?`,
+      "Autorizar acesso?",
+      `${professional.fullName} poderá ver ${SCOPE_LABEL[
+        scope
+      ].toLowerCase()} pelos próximos ${formatMinutesRemaining(
+        request!.durationMinutes
+      )}. Você pode revogar antes disso quando quiser.`,
       [
         { text: "Cancelar", style: "cancel" },
         {
           text: "Autorizar",
-          style: "default",
-          onPress: () => {
-            approveRequest(request!.id);
-            router.replace("/(tabs)/permissoes");
+          onPress: async () => {
+            setSubmitting("approve");
+            try {
+              await approveRequest(request!.id);
+              router.replace("/(tabs)/permissoes");
+            } catch {
+              Alert.alert("Não foi possível autorizar", "Tente novamente.");
+            } finally {
+              setSubmitting(null);
+            }
           },
         },
       ]
@@ -52,16 +95,23 @@ export default function AutorizacaoScreen() {
 
   function handleDeny() {
     Alert.alert(
-      "Negar acesso",
-      `Tem certeza que deseja negar o acesso de ${request!.professional.fullName}?`,
+      "Negar acesso?",
+      `${professional.fullName} não verá nenhum dado do seu prontuário. Ele pode enviar um novo pedido depois.`,
       [
         { text: "Cancelar", style: "cancel" },
         {
           text: "Negar",
           style: "destructive",
-          onPress: () => {
-            denyRequest(request!.id);
-            router.back();
+          onPress: async () => {
+            setSubmitting("deny");
+            try {
+              await denyRequest(request!.id);
+              router.back();
+            } catch {
+              Alert.alert("Não foi possível negar", "Tente novamente.");
+            } finally {
+              setSubmitting(null);
+            }
           },
         },
       ]
@@ -69,161 +119,190 @@ export default function AutorizacaoScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      {/* Header Institucional */}
-      <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-5 py-3.5 shadow-2xs">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          className="flex-row items-center py-1"
-        >
-          <Text className="text-sm font-semibold text-brand-700">← Voltar</Text>
-        </TouchableOpacity>
-        <Text className="text-base font-bold text-gray-900">Solicitação de Acesso</Text>
-        <View className="w-12" />
-      </View>
+    <SafeAreaView edges={["top"]} className="flex-1 bg-background">
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 }}
+      >
+        <ScreenHeader
+          title="Pedido de acesso"
+          subtitle="Confira quem está pedindo e o que será compartilhado antes de decidir."
+          onBack={() => router.back()}
+        />
 
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
-        {/* Card do Médico Solicitante */}
-        <View className="mb-4 flex-row items-center gap-3.5 rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
-          <View className="h-12 w-12 items-center justify-center rounded-full border border-brand-100 bg-brand-50">
-            <User color={colors.brand[700]} size={24} />
-          </View>
-          <View className="flex-1">
-            <Text className="text-base font-bold text-gray-900">
-              {request.professional.fullName}
-            </Text>
-            <Text className="text-xs text-gray-500">
-              CRM {request.professional.crm} · {request.professional.specialty}
-            </Text>
-            {request.professional.institution?.name && (
-              <Text className="mt-0.5 text-xs font-semibold text-brand-800">
-                {request.professional.institution.name}
+        {/* Quem está pedindo. */}
+        <Surface className="mb-3">
+          <View className="flex-row items-start gap-3">
+            <View className="h-11 w-11 items-center justify-center rounded-full border border-interactive-border bg-interactive-subtle">
+              <Stethoscope size={20} color={colors.semantic.interactive} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-card-title font-semibold text-foreground">
+                {professional.fullName}
               </Text>
-            )}
+              <Text className="text-body-sm text-foreground-secondary">
+                {formatCrm(professional.crm)} · {professional.specialty}
+              </Text>
+              {professional.institution?.name ? (
+                <View className="mt-1.5 flex-row items-center gap-1.5">
+                  <Building2 size={13} color={colors.semantic.textTertiary} />
+                  <Text className="text-caption text-foreground-tertiary">
+                    {professional.institution.name}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
-        </View>
+        </Surface>
 
-        {/* Detalhes da Solicitação */}
-        <View className="mb-4 rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
-          <Text className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">
-            Parâmetros do acesso
+        {/* Parâmetros do acesso. */}
+        <Surface className="mb-3">
+          <Text className="text-overline font-semibold uppercase text-foreground-tertiary">
+            O que está sendo pedido
           </Text>
 
-          <View className="flex-row items-center justify-between border-b border-gray-100 pb-3">
-            <View className="flex-row items-center gap-2.5">
-              <Clock color={colors.brand[700]} size={16} />
-              <Text className="text-xs text-gray-600">Duração solicitada</Text>
+          <View
+            accessible
+            accessibilityLabel={`Escopo: ${SCOPE_LABEL[scope]}`}
+            className="mt-3 flex-row items-center justify-between gap-3 border-b border-border-subtle pb-3"
+          >
+            <View className="flex-row items-center gap-2">
+              <FileLock2 size={15} color={colors.semantic.textSecondary} />
+              <Text className="text-body-sm text-foreground-secondary">Escopo</Text>
             </View>
-            <View className="rounded-md bg-gray-100 px-2 py-0.5">
-              <Text className="text-xs font-bold text-gray-800">
-                {request.durationMinutes} minutos
-              </Text>
-            </View>
+            <Text className="flex-1 text-right text-body-sm font-semibold text-foreground">
+              {SCOPE_LABEL[scope]}
+            </Text>
           </View>
 
-          <View className="flex-row items-center justify-between pt-3">
-            <View className="flex-row items-center gap-2.5">
-              <ShieldCheck color={colors.brand[700]} size={16} />
-              <Text className="text-xs text-gray-600">Escopo de dados</Text>
+          <View
+            accessible
+            accessibilityLabel={`Duração: ${formatMinutesRemaining(
+              request.durationMinutes
+            )}, contados a partir da autorização`}
+            className="flex-row items-center justify-between gap-3 pt-3"
+          >
+            <View className="flex-row items-center gap-2">
+              <Clock size={15} color={colors.semantic.textSecondary} />
+              <Text className="text-body-sm text-foreground-secondary">Duração</Text>
             </View>
-            <View className="rounded-md bg-brand-50 border border-brand-100 px-2 py-0.5">
-              <Text className="text-xs font-bold text-brand-800">
-                {SCOPE_LABEL[request.scope]}
-              </Text>
-            </View>
+            <Text className="flex-1 text-right text-body-sm font-semibold text-foreground">
+              {formatMinutesRemaining(request.durationMinutes)}
+            </Text>
           </View>
 
-          {/* Motivo */}
-          {request.reason && (
-            <View className="mt-3.5 rounded-xl border border-amber-200/80 bg-amber-50/70 p-3">
-              <View className="mb-1 flex-row items-center gap-1.5">
-                <AlertTriangle color={colors.alert.amber} size={14} />
-                <Text className="text-[11px] font-bold uppercase tracking-wider text-amber-900">
+          <Text className="mt-3 text-caption text-foreground-tertiary">
+            O prazo começa a contar no momento em que você autorizar, e o acesso
+            se encerra sozinho ao final dele.
+          </Text>
+        </Surface>
+
+        {/* Motivo declarado. */}
+        {request.reason ? (
+          <Surface className="mb-3" tone="subtle">
+            <View className="flex-row items-start gap-2">
+              <MessageSquareQuote size={15} color={colors.semantic.textSecondary} />
+              <View className="flex-1">
+                <Text className="text-overline font-semibold uppercase text-foreground-tertiary">
                   Motivo informado
                 </Text>
+                <Text className="mt-1 text-body text-foreground">{request.reason}</Text>
               </View>
-              <Text className="text-xs font-medium text-amber-950">{request.reason}</Text>
             </View>
-          )}
-        </View>
+          </Surface>
+        ) : null}
 
-        {/* Detalhamento de Soberania (O que pode ver / Não pode ver) */}
-        <View className="mb-4 rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
-          <Text className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-800">
-            O médico poderá visualizar
+        {/* O que fica visível e o que não fica. */}
+        <Surface className="mb-3">
+          <Text className="text-overline font-semibold uppercase text-success">
+            O profissional poderá ver
           </Text>
-          <View className="gap-2">
-            {SCOPE_SHARES[request.scope].map((item) => (
-              <View key={item} className="flex-row items-center gap-2">
-                <View className="h-4 w-4 items-center justify-center rounded-full bg-emerald-100">
-                  <Check size={10} color={colors.alert.green} />
+          <View className="mt-2.5 gap-2">
+            {SCOPE_SHARES[scope].map((item) => (
+              <View key={item} className="flex-row items-start gap-2">
+                <View className="mt-0.5 h-4 w-4 items-center justify-center rounded-full bg-success-subtle">
+                  <Check size={10} color={colors.status.success.fg} />
                 </View>
-                <Text className="text-xs font-medium text-gray-800">{item}</Text>
+                <Text className="flex-1 text-body-sm text-foreground">{item}</Text>
               </View>
             ))}
           </View>
 
-          {SCOPE_WITHHOLDS[request.scope].length > 0 && (
-            <View className="mt-4 border-t border-gray-100 pt-3">
-              <Text className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400">
-                Permanecerá privado (Não compartilhado)
+          {SCOPE_WITHHOLDS[scope].length > 0 && (
+            <View className="mt-4 border-t border-border-subtle pt-3">
+              <Text className="text-overline font-semibold uppercase text-foreground-tertiary">
+                Continua privado
               </Text>
-              <View className="gap-2">
-                {SCOPE_WITHHOLDS[request.scope].map((item) => (
-                  <View key={item} className="flex-row items-center gap-2">
-                    <View className="h-4 w-4 items-center justify-center rounded-full bg-gray-100">
-                      <X size={10} color={colors.neutral.muted} />
+              <View className="mt-2.5 gap-2">
+                {SCOPE_WITHHOLDS[scope].map((item) => (
+                  <View key={item} className="flex-row items-start gap-2">
+                    <View className="mt-0.5 h-4 w-4 items-center justify-center rounded-full bg-surface-subtle">
+                      <EyeOff size={10} color={colors.semantic.textTertiary} />
                     </View>
-                    <Text className="text-xs text-gray-400">{item}</Text>
+                    <Text className="flex-1 text-body-sm text-foreground-tertiary">
+                      {item}
+                    </Text>
                   </View>
                 ))}
               </View>
             </View>
           )}
+        </Surface>
+
+        <View className="mb-2 flex-row items-start gap-2 px-1">
+          <ShieldCheck size={14} color={colors.semantic.textTertiary} />
+          <Text className="flex-1 text-caption text-foreground-tertiary">
+            Toda abertura do prontuário fica registrada no seu histórico, e você
+            pode revogar o acesso a qualquer momento.
+          </Text>
         </View>
+      </ScrollView>
 
-        {/* Aviso de segurança */}
-        <Text className="mb-6 px-3 text-center text-xs text-gray-400">
-          O acesso é auditado e expira automaticamente após o período. Você pode revogá-lo a qualquer momento.
-        </Text>
-
-        {/* Botões de ação */}
+      {/* As ações ficam fixas no rodapé: a decisão precisa estar ao alcance sem
+          rolar de volta, e aprovar não pode ter o mesmo peso de negar. */}
+      <View className="border-t border-border bg-surface px-5 pb-5 pt-4">
         {isResolved ? (
-          <View className="items-center rounded-2xl bg-gray-100 p-5">
-            <Text className="text-base font-semibold text-gray-700">
-              {request.status === "APPROVED" ? "Acesso autorizado" : "Acesso negado"}
+          <View className="items-center gap-2">
+            <StatusBadge
+              tone={request.status === "APPROVED" ? "active" : "denied"}
+              label={
+                request.status === "APPROVED" ? "Acesso autorizado" : "Acesso negado"
+              }
+            />
+            <Text className="text-caption text-foreground-tertiary">
+              Este pedido já foi respondido.
             </Text>
-            <Text className="mt-1 text-xs text-gray-400">Este pedido já foi respondido.</Text>
+            <Button
+              className="mt-2"
+              label="Voltar"
+              variant="outline"
+              onPress={() => router.back()}
+            />
           </View>
         ) : (
-          <View className="gap-3">
-            <TouchableOpacity
+          <View className="gap-2.5">
+            <Button
+              label="Autorizar acesso"
+              variant="primary"
+              size="lg"
+              icon={<ShieldCheck size={18} color="#FFFFFF" />}
+              loading={submitting === "approve"}
+              disabled={submitting !== null}
               onPress={handleApprove}
-              activeOpacity={0.85}
-              className="flex-row items-center justify-center gap-2.5 rounded-2xl bg-brand-600 py-4 shadow-sm active:bg-brand-700"
-              accessibilityLabel="Autorizar acesso"
-              accessibilityRole="button"
-            >
-              <ShieldCheck color="#fff" size={20} />
-              <Text className="text-base font-bold text-white">Autorizar Acesso</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
+              accessibilityHint="Pede confirmação antes de liberar o acesso"
+            />
+            <Button
+              label="Negar acesso"
+              variant="destructive"
+              loading={submitting === "deny"}
+              disabled={submitting !== null}
               onPress={handleDeny}
-              activeOpacity={0.85}
-              className="flex-row items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-3.5 shadow-2xs active:bg-gray-50"
-              accessibilityLabel="Negar acesso"
-              accessibilityRole="button"
-            >
-              <ShieldX color={colors.neutral.subtle} size={18} />
-              <Text className="text-sm font-semibold text-gray-700">Negar Acesso</Text>
-            </TouchableOpacity>
+              icon={<X size={16} color={colors.status.danger.fg} />}
+              accessibilityHint="Pede confirmação antes de recusar"
+            />
           </View>
         )}
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
-
-

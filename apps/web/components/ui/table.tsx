@@ -4,15 +4,17 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+// A tabela sempre rola dentro do próprio contêiner. É isso que impede a
+// página inteira de ganhar rolagem horizontal em telas estreitas.
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className="scrollbar-thin relative w-full overflow-x-auto"
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn("w-full caption-bottom text-body", className)}
         {...props}
       />
     </div>
@@ -23,7 +25,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("[&_tr]:border-b", className)}
+      className={cn("bg-surface-subtle [&_tr]:border-b [&_tr]:border-border", className)}
       {...props}
     />
   )
@@ -44,7 +46,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
     <tfoot
       data-slot="table-footer"
       className={cn(
-        "border-t bg-muted/50 font-medium [&>tr]:last:border-b-0",
+        "border-t border-border bg-surface-subtle font-medium [&>tr]:last:border-b-0",
         className
       )}
       {...props}
@@ -57,7 +59,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        "border-b border-border-subtle transition-colors duration-fast hover:bg-surface-subtle data-[state=selected]:bg-accent",
         className
       )}
       {...props}
@@ -70,7 +72,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "h-9 whitespace-nowrap px-3 text-left align-middle text-overline uppercase text-muted-foreground",
         className
       )}
       {...props}
@@ -82,8 +84,11 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   return (
     <td
       data-slot="table-cell"
+      // `whitespace-nowrap` por padrão: número, unidade e faixa de referência
+      // ficam ilegíveis quebrados no meio. Quando não couber, quem rola é o
+      // contêiner da tabela, não a célula.
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "whitespace-nowrap px-3 py-2.5 align-middle text-foreground-secondary",
         className
       )}
       {...props}
@@ -98,7 +103,7 @@ function TableCaption({
   return (
     <caption
       data-slot="table-caption"
-      className={cn("mt-4 text-sm text-muted-foreground", className)}
+      className={cn("mt-3 text-body-sm text-muted-foreground", className)}
       {...props}
     />
   )

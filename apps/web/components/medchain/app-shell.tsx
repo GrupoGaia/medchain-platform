@@ -1,123 +1,103 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, PlusCircle, LogOut, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
+import { AppSidebar } from "./app-sidebar";
+import { Breadcrumbs, buildCrumbs } from "./breadcrumbs";
 import { Logo } from "./logo";
 import { UserMenu } from "./user-menu";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 interface AppShellProps {
   children: React.ReactNode;
   userName: string;
   userSubtitle?: string;
+  institution?: string;
   logoutAction: () => void;
 }
 
-const navItems = [
-  { href: "/medico/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/medico/solicitar", label: "Solicitar acesso", icon: PlusCircle },
-];
-
-function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
-  return (
-    <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
-      {navItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              isActive
-                ? "bg-primary-50 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            <Icon size={18} />
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
-
-export function AppShell({ children, userName, userSubtitle, logoutAction }: AppShellProps) {
+export function AppShell({
+  children,
+  userName,
+  userSubtitle,
+  institution,
+  logoutAction,
+}: AppShellProps) {
   const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const crumbs = buildCrumbs(pathname);
+  const user = { name: userName, role: userSubtitle, institution };
+
+  // O painel lateral do mobile precisa fechar quando a rota muda. Sem isto ele
+  // fica aberto por cima da página nova depois de tocar num item do menu.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   return (
-    <div className="flex min-h-screen bg-muted/40">
-      {/* Sidebar desktop */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-white shadow-sm lg:flex">
-        <div className="flex h-16 items-center border-b border-border px-5">
-          <Logo size="sm" />
-        </div>
-        <NavLinks pathname={pathname} />
-        
-        <div className="border-t border-border p-3">
-          <form action={logoutAction}>
-            <Button
-              type="submit"
-              variant="ghost"
-              className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
-            >
-              <LogOut size={18} />
-              Sair
-            </Button>
-          </form>
-        </div>
+    <div className="min-h-screen bg-background">
+      <a
+        href="#conteudo"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2 focus:text-label focus:font-medium focus:text-foreground focus:shadow-floating"
+      >
+        Pular para o conteúdo
+      </a>
+
+      {/* Barra lateral fixa: só a partir de lg, onde há largura sobrando. */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-sidebar border-r border-sidebar-border lg:block">
+        <AppSidebar pathname={pathname} user={user} logoutAction={logoutAction} />
       </aside>
 
-      {/* Conteúdo principal */}
-      <div className="flex flex-1 flex-col lg:pl-64">
-        {/* Header mobile */}
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-white px-4 shadow-sm lg:hidden">
-          <Logo size="sm" />
-          <Sheet>
+      <div className="flex min-h-screen flex-col lg:pl-sidebar">
+        <header className="sticky top-0 z-20 flex h-header shrink-0 items-center gap-3 border-b border-border bg-surface px-4 sm:px-6">
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger
               render={
-                <Button variant="ghost" size="icon">
-                  <Menu size={20} />
-                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="lg:hidden"
+                  aria-label="Abrir menu de navegação"
+                />
               }
-            />
-            <SheetContent side="left" className="w-64 p-0">
-              <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
-              <div className="flex h-16 items-center border-b border-border px-5">
-                <Logo size="sm" />
-              </div>
-              <NavLinks pathname={pathname} />
-              <div className="border-t border-border p-3">
-                <form action={logoutAction}>
-                  <Button
-                    type="submit"
-                    variant="ghost"
-                    className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
-                  >
-                    <LogOut size={18} />
-                    Sair
-                  </Button>
-                </form>
-              </div>
+            >
+              <Menu size={18} />
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0" showCloseButton={false}>
+              <SheetTitle className="sr-only">Navegação principal</SheetTitle>
+              <AppSidebar
+                pathname={pathname}
+                user={user}
+                logoutAction={logoutAction}
+                onNavigate={() => setMenuOpen(false)}
+              />
             </SheetContent>
           </Sheet>
+
+          <span className="lg:hidden">
+            <Logo size="sm" showText={false} />
+          </span>
+
+          <Breadcrumbs items={crumbs} className="hidden flex-1 sm:block" />
+          <span className="flex-1 sm:hidden" />
+
+          <UserMenu
+            name={userName}
+            subtitle={userSubtitle}
+            institution={institution}
+            onLogout={logoutAction}
+          />
         </header>
 
-        {/* Header desktop */}
-        <header className="sticky top-0 z-20 hidden h-16 items-center justify-end border-b border-border bg-white px-8 shadow-sm lg:flex">
-          <UserMenu name={userName} subtitle={userSubtitle} onLogout={logoutAction} />
-        </header>
-
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl">
-            {children}
-          </div>
+        <main id="conteudo" className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-[1400px]">{children}</div>
         </main>
       </div>
     </div>

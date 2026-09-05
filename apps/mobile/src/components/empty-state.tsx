@@ -1,43 +1,48 @@
-import { View, Image, type ImageSourcePropType } from "react-native";
+import { View } from "react-native";
 import { Text } from "./text";
 
 type Props = {
   title: string;
   description?: string;
-  /** Ilustração da tela vazia. Tem prioridade sobre o ícone. */
-  image?: ImageSourcePropType;
-  /** Alternativa enxuta para os espaços pequenos, onde a ilustração não cabe. */
+  /** Ícone pequeno, dentro de um disco neutro. */
   icon?: React.ReactNode;
+  /** Ação de saída, quando existe um próximo passo claro. */
+  action?: React.ReactNode;
   className?: string;
 };
 
+/**
+ * Estado vazio: uma frase explicando por que não há nada e, quando existe, o
+ * próximo passo. Sem ilustração ocupando a tela — em app de controle de dados
+ * ela só empurra o conteúdo para baixo.
+ */
 export function EmptyState({
   title,
   description,
-  image,
   icon,
+  action,
   className,
 }: Props) {
   return (
-    <View className={`items-center px-6 ${className ?? ""}`.trim()}>
-      {image ? (
-        <Image
-          source={image}
-          className="h-32 w-40"
-          resizeMode="contain"
-          accessibilityIgnoresInvertColors
-          // A ilustração é decorativa: quem usa leitor de tela ouve o título abaixo.
-          accessible={false}
-        />
-      ) : (
-        icon
-      )}
-      <Text className="mt-3 text-base font-medium text-gray-500">{title}</Text>
+    <View
+      className={`items-center rounded-xl border border-dashed border-border-strong bg-surface px-5 py-8 ${
+        className ?? ""
+      }`.trim()}
+    >
+      {icon ? (
+        <View className="mb-3 h-10 w-10 items-center justify-center rounded-full bg-surface-subtle">
+          {icon}
+        </View>
+      ) : null}
+      <Text className="text-center text-card-title font-semibold text-foreground">
+        {title}
+      </Text>
       {description ? (
-        <Text className="mt-1 text-center text-sm text-gray-400">
+        <Text className="mt-1 text-center text-body-sm text-foreground-tertiary">
           {description}
         </Text>
       ) : null}
+      {action ? <View className="mt-4 w-full">{action}</View> : null}
     </View>
   );
 }

@@ -1,20 +1,12 @@
-export { colors } from "./colors";
+export { colors, type Colors } from "./colors";
+export {
+  typography,
+  fontFamily,
+  type TypeStyle,
+  type TypographyRole,
+} from "./typography";
+export { radius, shadow, spacing, motion } from "./layout";
 
-export const fontFamily = {
-  sans: ["Inter", "ui-sans-serif", "system-ui"],
-  mono: ["JetBrains Mono", "ui-monospace"],
-};
-
-export const borderRadius = {
-  sm: "0.5rem",
-  md: "0.75rem",
-  lg: "1rem",
-  xl: "1.25rem",
-  "2xl": "1.5rem",
-  "3xl": "2rem",
-  full: "9999px",
-};
-
-export const spacing = {
-  touch: "44px",
-};
+// Compatibilidade: o nome antigo da escala de raio. Continua exportado para
+// não quebrar quem já importava, mas o valor agora vem da escala contida.
+export { radius as borderRadius } from "./layout";

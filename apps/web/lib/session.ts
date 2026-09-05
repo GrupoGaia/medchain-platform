@@ -12,7 +12,9 @@ export async function getCurrentUser() {
   return prisma.user.findUnique({
     where: { authId: user.id },
     include: {
-      professionalProfile: true,
+      // A instituição vem junto porque o cabeçalho do portal mostra em nome de
+      // quem o profissional está acessando o prontuário.
+      professionalProfile: { include: { institution: true } },
       patientProfile: true,
       contactFor: true,
     },
